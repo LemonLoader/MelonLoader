@@ -12,22 +12,61 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive # Ensure all submodules are updated recursively
+      - name: Verify and Install Submodules
+        run: |
+          git submodule foreach git fetch --tags
+          git submodule status
+          cd External
+          git submodule add https://github.com/LemonLoader/JNISharp.git
+          git submodule add https://github.com/LemonLoader/HarmonyX.git
+          git submodule add https://github.com/SamboyCoding/Cpp2IL.git
+          git submodule add https://github.com/LemonLoader/Il2CppInterop.git
+          git submodule update --init --recursive
+          cd ..
+     
       - name: setup-msbuild
         uses: microsoft/setup-msbuild@v2
+      - name: Build External MonoMod
+        run: |
+          cd External/MonoMod
+          msbuild /restore /p:Platform="Any CPU" MonoMod.sln
+          cd ../../
       - name: Build Melonloader Core
         shell: cmd
-        run: msbuild /restore /p:Platform="Windows - x64" # Platform is actually irrelevant for core, it's compiled as AnyCPU either way
+        run: msbuild /restore /p:Platform="Windows - x64" MelonLoader.sln
       - name: Upload core artifact
         uses: actions/upload-artifact@v4
         with:
           name: MLCoreDebug
           path: Output/Debug/MelonLoader/
+
   build_core_release:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive # Ensure all submodules are updated recursively
+      - name: Verify and Install Submodules
+        run: |
+          git submodule foreach git fetch --tags
+          git submodule status
+          cd External
+          git submodule add https://github.com/LemonLoader/JNISharp.git
+          git submodule add https://github.com/LemonLoader/HarmonyX.git
+          git submodule add https://github.com/SamboyCoding/Cpp2IL.git
+          git submodule add https://github.com/LemonLoader/Il2CppInterop.git
+          git submodule update --init --recursive
+          cd ..
+     
       - name: setup-msbuild
         uses: microsoft/setup-msbuild@v2
+      - name: Build External MonoMod
+        run: |
+          cd External/MonoMod
+          msbuild /restore /p:Platform="Any CPU" MonoMod.sln
+          cd ../../
       - name: Build Melonloader Core
         shell: cmd
         run: msbuild /restore /p:Configuration=Release /p:Platform="Windows - x64"
