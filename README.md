@@ -21,7 +21,8 @@
   - Spent a lot of time helping me being stupid when compiling stuff and answering various questions :P
   - Hosts all of the Unity dependencies the installer uses
   - Wrote the Mono garbage collection fix I ported for use with the .NET Runtime.
-- [Fadenfire](https://github.com/Fadenfire) - Implemented partial ARM64 support into MonoMod, allowing Harmony to work. 
+- [Fadenfire](https://github.com/Fadenfire) - Implemented partial ARM64 support into MonoMod, allowing Harmony to work.
+- [Atmudia](https://github.com/Atmudia/) - Did the initial port of the NativeAOT Bootstrap to Android.
 - [RinLovesYou](https://github.com/RinLovesYou) - Helped me with various Rust/Bootstrap stuff
 - [Someone Somewhere](https://github.com/someonesomewheredev/) - Helped me with various things
 - [SamboyCoding](https://github.com/SamboyCoding) - Helped me with various things

@@ -10,25 +10,31 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <NoWarn>LNK4099</NoWarn>
         <InvariantGlobalization>true</InvariantGlobalization>
-    </PropertyGroup>
-    
-    <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">
-        <ExportsFile>linuxexports.def</ExportsFile>
-        <LinuxEntryPath>Deps/$(RuntimeIdentifier)/linuxentry.o</LinuxEntryPath>
-    </PropertyGroup>
+        <TrimUnusedDependencies>true</TrimUnusedDependencies>
+        <StripSymbols>false</StripSymbols>
 
-    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'">
-        <LinkerArg Include="/DEF:Exports.def" />
-    </ItemGroup>
+
+    </PropertyGroup>
+    <!-- Import NDK pressets -->
+    <Import Project="BionicNativeAot.targets"/>
+    
+<!--    <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">-->
+<!--        <ExportsFile>linuxexports.def</ExportsFile>-->
+<!--        <LinuxEntryPath>Deps/$(RuntimeIdentifier)/linuxentry.o</LinuxEntryPath>-->
+<!--    </PropertyGroup>-->
+
+<!--    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'">-->
+<!--        <LinkerArg Include="/DEF:Exports.def" />-->
+<!--    </ItemGroup>-->
 
     <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">
         <LinkerArg Include="-lstdc++" />
     </ItemGroup>
 
-    <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
-        <DebugSymbols>false</DebugSymbols>
-        <DebugType>none</DebugType>
-    </PropertyGroup>
+<!--    <PropertyGroup Condition="'$(Configuration)' != 'Debug'">-->
+<!--        <DebugSymbols>true</DebugSymbols>-->
+<!--        <DebugType>embedded</DebugType>-->
+<!--    </PropertyGroup>-->
 
     <ItemGroup>
         <None Include="../BaseLibs/NetStandardPatches/*" CopyToOutputDirectory="PreserveNewest" Link="MelonLoader/Dependencies/NetStandardPatches/%(RecursiveDir)%(Filename)%(Extension)" />
@@ -49,10 +55,20 @@
         <AppHostPath>$(NuGetPackageRoot)runtime.$(RuntimeIdentifier).microsoft.netcore.dotnetapphost/$(AppHostVersion)/runtimes/$(RuntimeIdentifier)/native/libnethost$(LibExt)</AppHostPath>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <DefineConstants>;X64;ANDROID;TRACE</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+      <DefineConstants>;X64;ANDROID;TRACE</DefineConstants>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.NETCore.DotNetAppHost" Version="$(AppHostVersion)" PrivateAssets="All" />
         <PackageReference Include="Pastel" Version="6.0.1" />
         <PackageReference Include="Samboy063.Tomlet" Version="6.0.0" />
+
+
     </ItemGroup>
     
     <ItemGroup>
@@ -63,20 +79,20 @@
         <NativeLibrary Include="$(AppHostPath)" />
         <NativeLibrary Include="Deps/$(RuntimeIdentifier)/$(LibPrefix)dobby$(LibExt)" />
     </ItemGroup>
-
-    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">
-        <NativeLibrary Include="$(LinuxEntryPath)" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ClCompile Include="LinuxEntry\LinuxEntry.cpp" />
-    </ItemGroup>
-
-    <Target Name="PublishAsBuildAfterTarget" AfterTargets="Build" DependsOnTargets="Publish" />
     
-    <Target Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'" Name="BuildLinuxEntry" BeforeTargets="Build">
-        <Exec Command="g++ -c -O2 -fPIC LinuxEntry/LinuxEntry.cpp -o $(LinuxEntryPath)" />
-    </Target>
+<!--    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">-->
+<!--        <NativeLibrary Include="$(LinuxEntryPath)" />-->
+<!--    </ItemGroup>-->
+
+<!--    <ItemGroup>-->
+<!--      <ClCompile Include="LinuxEntry\LinuxEntry.cpp" />-->
+<!--    </ItemGroup>-->
+
+<!--    <Target Name="PublishAsBuildAfterTarget" AfterTargets="Build" DependsOnTargets="Publish" />-->
+    
+<!--    <Target Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'" Name="BuildLinuxEntry" BeforeTargets="Build">-->
+<!--        <Exec Command="g++ -c -O2 -fPIC LinuxEntry/LinuxEntry.cpp -o $(LinuxEntryPath)" />-->
+<!--    </Target>-->
 
     <Target Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'" Name="RenameBinary" AfterTargets="Build">
         <Move SourceFiles="$(PublishDir)/$(TargetName).dll" DestinationFiles="$(PublishDir)/version.dll" />

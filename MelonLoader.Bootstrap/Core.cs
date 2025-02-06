@@ -4,17 +4,19 @@ using MelonLoader.Bootstrap.RuntimeHandlers.Mono;
 using MelonLoader.Bootstrap.Utils;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Tomlet;
 
 namespace MelonLoader.Bootstrap;
 
 public static class Core
 {
-    public static nint LibraryHandle { get; private set; }
+    public static nint LibraryHandle { get; internal set; }
 
     internal static InternalLogger Logger { get; private set; } = new(Color.BlueViolet, "MelonLoader.Bootstrap");
-    public static string DataDir { get; private set; } = null!;
-    public static string GameDir { get; private set; } = null!;
+    public static string DataDir { get; internal set; } = null!;
+    public static string GameDir { get; internal set; } = null!;
 
 #if LINUX
     [System.Runtime.InteropServices.UnmanagedCallersOnly(EntryPoint = "Init")]
@@ -24,18 +26,27 @@ public static class Core
     {
         LibraryHandle = moduleHandle;
 
+#if !ANDROID
         var exePath = Environment.ProcessPath!;
         GameDir = Path.GetDirectoryName(exePath)!;
-
         DataDir = Path.Combine(GameDir, Path.GetFileNameWithoutExtension(exePath) + "_Data");
         if (!Directory.Exists(DataDir))
             return;
+#else
+        Proxy.Android.AndroidBootstrap.CacheDataDir();
+        Proxy.Android.AndroidBootstrap.EnsurePerms();
 
+        Proxy.Android.APKAssetManager.Initialize();
+        Proxy.Android.AndroidProxy.LogWith("JNI initialized!");
+
+        Proxy.Android.AndroidBootstrap.CopyMelonLoaderData(Proxy.Android.AndroidBootstrap.GetApkModificationDate());
+        MelonDebug.Log("APK assets copied!");
+#endif
         InitConfig();
 
         if (LoaderConfig.Current.Loader.Disable)
             return;
-
+        
         MelonLogger.Init();
 
         MelonDebug.Log("Starting probe for runtime");
@@ -51,9 +62,10 @@ public static class Core
     }
 
     [RequiresDynamicCode("Dynamically accesses LoaderConfig properties")]
-    private static void InitConfig()
+    public static void InitConfig()
     {
         var customBaseDir = ArgParser.GetValue("melonloader.basedir");
+        
         var baseDir = Directory.Exists(customBaseDir) ? Path.GetFullPath(customBaseDir) : LoaderConfig.Current.Loader.BaseDirectory;
 
         var path = Path.Combine(baseDir, "UserData", "Loader.cfg");

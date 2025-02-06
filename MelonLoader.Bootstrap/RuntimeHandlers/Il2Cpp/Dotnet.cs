@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
+using MelonLoader.Bootstrap.Proxy.Android;
 
 namespace MelonLoader.Bootstrap.RuntimeHandlers.Il2Cpp;
 
@@ -26,10 +27,14 @@ internal static partial class Dotnet
 
     private static string? GetHostfxrPath()
     {
+#if ANDROID
+        return Path.Combine(AndroidBootstrap.DotnetDir, "host", "fxr", "8.0.6", "libhostfxr.so");
+#else
         var buffer = new StringBuilder(1024);
         var bufferSize = (nint)buffer.Capacity;
         var result = get_hostfxr_path(buffer, ref bufferSize, 0);
         return result != 0 ? null : buffer.ToString();
+#endif
     }
 
     public static bool InitializeForRuntimeConfig(string runtimeConfigPath, out nint context)

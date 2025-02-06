@@ -1,5 +1,6 @@
 ﻿using MelonLoader.Bootstrap.Utils;
 using System.Runtime.InteropServices;
+using MelonLoader.Bootstrap.Proxy.Android;
 
 namespace MelonLoader.Bootstrap.RuntimeHandlers.Il2Cpp;
 
@@ -11,6 +12,13 @@ internal static class Il2CppHandler
     private static Action? startFunc; // Prevent GC
 
     private static Il2CppLib il2cpp = null!;
+
+    private const string NetVersion =
+#if !ANDROID
+        "net6";
+#else
+        "net8";
+#endif
 
     public static bool TryInitialize()
     {
@@ -43,9 +51,9 @@ internal static class Il2CppHandler
         return domain;
     }
 
-    private static unsafe void InitializeManaged()
+    private static void InitializeManaged()
     {
-        var managedDir = Path.Combine(LoaderConfig.Current.Loader.BaseDirectory, "MelonLoader", "net6");
+        var managedDir = Path.Combine(LoaderConfig.Current.Loader.BaseDirectory, "MelonLoader", NetVersion);
         var runtimeConfigPath = Path.Combine(managedDir, "MelonLoader.runtimeconfig.json");
         var nativeHostPath = Path.Combine(managedDir, "MelonLoader.NativeHost.dll");
 
@@ -61,7 +69,7 @@ internal static class Il2CppHandler
             return;
         }
 
-        MelonDebug.Log("Attempting to load hostfxr");
+        MelonDebug.Log("Attempting to load Hostfxr");
         if (!Dotnet.LoadHostfxr())
         {
             DotnetInstaller.AttemptInstall();

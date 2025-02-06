@@ -1,6 +1,7 @@
 ﻿using MelonLoader.Bootstrap.Utils;
 using Pastel;
 using System.Drawing;
+using MelonLoader.Bootstrap.Proxy.Android;
 
 namespace MelonLoader.Bootstrap.Logging;
 
@@ -113,6 +114,10 @@ internal static class MelonLogger
 
     private static void LogToFiles(string? log)
     {
+#if ANDROID
+        AndroidProxy.Log(3, $"MelonLoader", log ?? " ");
+#endif
+
         foreach (var file in logFiles)
         {
             if (log == null)
