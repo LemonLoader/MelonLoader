@@ -10,13 +10,10 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <NoWarn>LNK4099</NoWarn>
         <InvariantGlobalization>true</InvariantGlobalization>
+		<DefineConstants>ANDROID</DefineConstants>
     </PropertyGroup>
-
 
     <Import Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'" Project="BionicNativeAot.targets" />
-    <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'">
-        <DefineConstants>;X64;ANDROID;TRACE</DefineConstants>
-    </PropertyGroup>
 
     <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">
         <ExportsFile>linuxexports.def</ExportsFile>
@@ -90,8 +87,6 @@
             Lines="$([System.IO.File]::ReadAllText($(ExportsFile)).Replace('V1.0',''))"
             Overwrite="true" />
     </Target>
-
-    <Target Name="PublishAsBuildAfterTarget" AfterTargets="Build" DependsOnTargets="Publish" />
 
     <Target Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'" Name="RenameBinary"
         AfterTargets="Build">

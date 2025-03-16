@@ -139,7 +139,7 @@ public class LoaderConfig
         private const string MonoPathSeparatorDescription =
 #if WINDOWS
             "semicolon (;)";
-#elif LINUX
+#elif LINUX || ANDROID
             "colon (:)";
 #endif
 

@@ -11,7 +11,7 @@ namespace MelonLoader.Bootstrap;
 
 public static class Core
 {
-#if LINUX
+#if LINUX || ANDROID
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     private delegate nint DlsymFn(nint handle, string symbol);
     private static readonly DlsymFn HookDlsymDelegate = HookDlsym;
@@ -43,11 +43,12 @@ public static class Core
         if (!Directory.Exists(DataDir))
             return;
 #else
-        Proxy.Android.AndroidBootstrap.CacheDataDir();
+        DataDir = Proxy.Android.AndroidBootstrap.GetDataDir();
+        LoaderConfig.Current.Loader.BaseDirectory = DataDir;
         Proxy.Android.AndroidBootstrap.EnsurePerms();
 
         Proxy.Android.APKAssetManager.Initialize();
-        Proxy.Android.AndroidProxy.LogWith("JNI initialized!");
+        Proxy.Android.AndroidProxy.Log("JNI initialized!");
 
         Proxy.Android.AndroidBootstrap.CopyMelonLoaderData(Proxy.Android.AndroidBootstrap.GetApkModificationDate());
         MelonDebug.Log("APK assets copied!");
@@ -59,7 +60,7 @@ public static class Core
         
         MelonLogger.Init();
 
-#if LINUX
+#if LINUX || ANDROID
         PltHook.InstallHooks
         ([
             ("dlsym", Marshal.GetFunctionPointerForDelegate(HookDlsymDelegate))
@@ -103,7 +104,7 @@ public static class Core
         return redirect.detourPtr;
     }
 
-#if LINUX
+#if LINUX || ANDROID
     private static nint HookDlsym(nint handle, string symbol)
     {
         nint originalSymbolAddress = LibcNative.Dlsym(handle, symbol);

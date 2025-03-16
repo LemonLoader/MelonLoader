@@ -1,4 +1,5 @@
-﻿using JNISharp.NativeInterface;
+﻿#if ANDROID
+using JNISharp.NativeInterface;
 
 namespace MelonLoader.Bootstrap.Proxy.Android;
 
@@ -229,3 +230,4 @@ public static class APKAssetManager
         }
     }
 }
+#endif

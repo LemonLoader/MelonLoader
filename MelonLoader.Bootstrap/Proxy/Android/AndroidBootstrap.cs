@@ -1,3 +1,4 @@
+#if ANDROID
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -17,7 +18,7 @@ public static class AndroidBootstrap
         return 1;
     }
     
-    public static void CacheDataDir()
+    public static string GetDataDir()
     {
         JClass unityPlayer = JNI.FindClass("com/unity3d/player/UnityPlayer");
         JFieldID activityFieldId = JNI.GetStaticFieldID(unityPlayer, "currentActivity", "Landroid/app/Activity;");
@@ -32,8 +33,7 @@ public static class AndroidBootstrap
         var jMethodID = JNI.GetMethodID(JNI.GetObjectClass(getExtDir), "toString", "()Ljava/lang/String;");
         var objectMethod = JNI.CallObjectMethod<JString>(getExtDir, jMethodID);
         
-        Core.DataDir = Path.Combine(objectMethod.GetString(), "MelonLoader", PackageName);
-        LoaderConfig.Current.Loader.BaseDirectory = Core.DataDir;   
+        return Path.Combine(objectMethod.GetString(), "MelonLoader", PackageName);
     }
     
     public static bool EnsurePerms()
@@ -124,3 +124,4 @@ public static class AndroidBootstrap
         DotnetDir = Path.Combine(dotnetFolder);
     }
 }
+#endif

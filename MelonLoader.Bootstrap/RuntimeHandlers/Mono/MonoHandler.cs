@@ -16,7 +16,7 @@ internal static class MonoHandler
     private const char MonoPathSeparator =
 #if WINDOWS
         ';';
-#elif LINUX
+#elif LINUX || ANDROID
         ':';
 #endif
     

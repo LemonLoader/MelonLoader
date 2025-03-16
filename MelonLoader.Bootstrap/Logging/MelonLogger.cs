@@ -125,7 +125,7 @@ internal static class MelonLogger
     private static void LogToFiles(string? log)
     {
 #if ANDROID
-        AndroidProxy.Log(3, $"MelonLoader", log ?? " ");
+        Proxy.Android.AndroidProxy.Log(log ?? "");
 #endif
 
         foreach (var file in logFiles)
