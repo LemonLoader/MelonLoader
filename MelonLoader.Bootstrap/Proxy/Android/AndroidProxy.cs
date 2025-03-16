@@ -19,8 +19,8 @@ public static class AndroidProxy
     [RequiresDynamicCode("Calls MelonLoader.Bootstrap.Proxy.Android.AndroidBootstrap.LoadBootstrap()")]
     private static unsafe byte Load(void* env, void* jobject, void* str)
     {
-        AndroidBootstrap.LoadBootstrap();
         LoadUnity();
+        AndroidBootstrap.LoadBootstrap();
         return 1;
     }
 
