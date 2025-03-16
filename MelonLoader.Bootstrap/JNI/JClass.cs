@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-
-namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public class JClass : JObject
 {
@@ -144,3 +143,4 @@ public class JClass : JObject
         return JNI.NewObject<T>(this, this.GetMethodID(name, sig), args);
     }
 }
+#endif

@@ -1,6 +1,5 @@
-﻿using System;
-
-namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public readonly struct JFieldID : IEquatable<JFieldID>
 {
@@ -20,3 +19,4 @@ public readonly struct JFieldID : IEquatable<JFieldID>
         return this.Handle == other.Handle;
     }
 }
+#endif

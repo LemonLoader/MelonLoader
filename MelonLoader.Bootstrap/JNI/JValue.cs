@@ -1,4 +1,5 @@
-﻿namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 using System;
 using System.Runtime.InteropServices;
@@ -154,3 +155,4 @@ public readonly struct JValue
 
     public static implicit operator JValue(JObject obj) => new JValue(obj);
 }
+#endif

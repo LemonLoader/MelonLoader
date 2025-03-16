@@ -1,4 +1,5 @@
-﻿namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public static partial class JNI
 {
@@ -37,3 +38,4 @@ public static partial class JNI
         InvalidArguments = -6
     }
 }
+#endif

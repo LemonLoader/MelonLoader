@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
-using JNISharp.NativeInterface;
+using MelonLoader.Bootstrap.Java;
 using MelonLoader.Bootstrap.Utils;
 
 namespace MelonLoader.Bootstrap.Proxy.Android;

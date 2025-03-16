@@ -1,6 +1,5 @@
-﻿using System;
-
-namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public class JObject : IDisposable
 {
@@ -63,3 +62,4 @@ public class JObject : IDisposable
         GC.SuppressFinalize(this);
     }
 }
+#endif

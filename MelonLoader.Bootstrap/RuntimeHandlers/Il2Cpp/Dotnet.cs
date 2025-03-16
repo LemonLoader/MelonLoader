@@ -1,6 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
+#if ANDROID
 using MelonLoader.Bootstrap.Proxy.Android;
+#endif
 
 namespace MelonLoader.Bootstrap.RuntimeHandlers.Il2Cpp;
 

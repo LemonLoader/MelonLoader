@@ -1,4 +1,5 @@
-﻿namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public static partial class JNI
 {
@@ -11,3 +12,4 @@ public static partial class JNI
         V1_8 = 0x00010008
     }
 }
+#endif

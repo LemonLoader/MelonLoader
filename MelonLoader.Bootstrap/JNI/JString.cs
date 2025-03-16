@@ -1,4 +1,5 @@
-﻿namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public class JString : JObject
 {
@@ -6,3 +7,4 @@ public class JString : JObject
 
     public string GetString() => JNI.GetJStringString(this);
 }
+#endif

@@ -1,6 +1,5 @@
-﻿using MelonLoader.Bootstrap.Proxy.Android;
-
-namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 using System;
 using System.Runtime.InteropServices;
@@ -711,3 +710,4 @@ internal readonly unsafe struct JNIEnv
 
     internal readonly FunctionTable* Functions;
 }
+#endif

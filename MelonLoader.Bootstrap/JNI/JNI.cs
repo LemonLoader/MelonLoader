@@ -1,4 +1,5 @@
-﻿namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 using System;
 using System.Collections.Generic;
@@ -1411,3 +1412,4 @@ public unsafe static partial class JNI
         throw new NotImplementedException();
     }
 }
+#endif

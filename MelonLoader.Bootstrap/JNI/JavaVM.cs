@@ -1,4 +1,5 @@
-﻿namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 using System;
 using System.Runtime.InteropServices;
@@ -36,3 +37,4 @@ internal readonly unsafe struct JavaVM
 
     internal readonly FunctionTable* Functions;
 }
+#endif

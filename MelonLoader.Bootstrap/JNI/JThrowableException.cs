@@ -1,6 +1,5 @@
-﻿using System;
-
-namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public class JThrowableException : Exception
 {
@@ -13,3 +12,4 @@ public class JThrowableException : Exception
         this.Throwable = throwable;
     }
 }
+#endif

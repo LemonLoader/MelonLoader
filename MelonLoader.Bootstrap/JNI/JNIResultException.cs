@@ -1,6 +1,5 @@
-﻿using System;
-
-namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public class JNIResultException : Exception
 {
@@ -11,3 +10,4 @@ public class JNIResultException : Exception
         this.Result = result;
     }
 }
+#endif

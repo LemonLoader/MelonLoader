@@ -1,4 +1,5 @@
-﻿namespace JNISharp.NativeInterface;
+﻿#if ANDROID
+namespace MelonLoader.Bootstrap.Java;
 
 public class JThrowable : JObject
 {
@@ -8,3 +9,4 @@ public class JThrowable : JObject
 
     public override string ToString() => JNI.FindClass("java/lang/Throwable").CallObjectMethod<JString>(this, "toString", "()Ljava/lang/String;").GetString();
 }
+#endif

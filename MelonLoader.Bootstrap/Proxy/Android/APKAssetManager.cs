@@ -1,5 +1,5 @@
 ﻿#if ANDROID
-using JNISharp.NativeInterface;
+using MelonLoader.Bootstrap.Java;
 using MelonLoader.Bootstrap.Logging;
 
 namespace MelonLoader.Bootstrap.Proxy.Android;
