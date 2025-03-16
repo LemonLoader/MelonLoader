@@ -27,9 +27,12 @@
     </ItemGroup>
 
     <!-- This is needed by libnethost.a, not doing this will result in a runtime crash on boot -->
-    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">
+    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true' And '$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'false'">
         <LinkerArg Include="-Wl,-lstdc++" Visible="false" />
     </ItemGroup>
+	<ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'">
+		<LinkerArg Include="-lstdc++" Visible="false" />
+	</ItemGroup>
 
     <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
         <DebugSymbols>false</DebugSymbols>
