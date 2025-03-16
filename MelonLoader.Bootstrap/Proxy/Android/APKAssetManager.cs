@@ -1,5 +1,6 @@
 ﻿#if ANDROID
 using JNISharp.NativeInterface;
+using MelonLoader.Bootstrap.Logging;
 
 namespace MelonLoader.Bootstrap.Proxy.Android;
 
@@ -28,10 +29,15 @@ public static class APKAssetManager
                 Directory.CreateDirectory(outDir);
 
             using FileStream fileStream = File.Open(outPath, FileMode.Create);
-            using Stream assetStream = GetAssetStream(itemPath);
+            using Stream? assetStream = GetAssetStream(itemPath);
+            if (assetStream == null)
+            {
+                MelonLogger.LogError("Failed to get asset stream: " + itemPath, "APKAssetManager");
+                return;
+            }
 
             assetStream.CopyTo(fileStream);
-            
+
             return;
         }
 
@@ -43,24 +49,26 @@ public static class APKAssetManager
 
     public static byte[] GetAssetBytes(string path)
     {
-        JString pathString = JNI.NewString(path);
-        JObject asset = JNI.CallObjectMethod<JObject>(assetManager, JNI.GetMethodID(JNI.GetObjectClass(assetManager), "open", "(Ljava/lang/String;)Ljava/io/InputStream;"), new JValue(pathString));
+        using JString pathString = JNI.NewString(path);
+        using JClass assetManagerClass = JNI.GetObjectClass(assetManager);
+        using JObject asset = JNI.CallObjectMethod<JObject>(assetManager, JNI.GetMethodID(assetManagerClass, "open", "(Ljava/lang/String;)Ljava/io/InputStream;"), new JValue(pathString));
         if (asset == null || !asset.Valid())
             return [];
 
         using MemoryStream outputStream = new();
 
-        JArray<sbyte> buffer = JNI.NewArray<sbyte>(1024);
-        int bytesRead;
+        using JArray<sbyte> buffer = JNI.NewArray<sbyte>(1024);
         JMethodID readMethodID = JNI.GetMethodID(JNI.GetObjectClass(asset), "read", "([B)I");
 
+        int bytesRead = 0;
         while ((bytesRead = JNI.CallMethod<int>(asset, readMethodID, new JValue(buffer))) > 0)
         {
             byte[] managedBuffer = (byte[])(Array)buffer.GetElements();
             outputStream.Write(managedBuffer, 0, bytesRead);
         }
 
-        JMethodID closeMethodID = JNI.GetMethodID(JNI.GetObjectClass(asset), "close", "()V");
+        using JClass assetClass = JNI.GetObjectClass(asset);
+        JMethodID closeMethodID = JNI.GetMethodID(assetClass, "close", "()V");
         JNI.CallVoidMethod(asset, closeMethodID);
 
         HandleException();
@@ -68,10 +76,11 @@ public static class APKAssetManager
         return outputStream.ToArray();
     }
 
-    public static Stream GetAssetStream(string path)
+    public static Stream? GetAssetStream(string path)
     {
         using JString pathString = JNI.NewString(path);
-        JObject asset = JNI.CallObjectMethod<JObject>(assetManager, JNI.GetMethodID(JNI.GetObjectClass(assetManager), "open", "(Ljava/lang/String;)Ljava/io/InputStream;"), new JValue(pathString));
+        using JClass assetManagerClass = JNI.GetObjectClass(assetManager);
+        JObject asset = JNI.CallObjectMethod<JObject>(assetManager, JNI.GetMethodID(assetManagerClass, "open", "(Ljava/lang/String;)Ljava/io/InputStream;"), new JValue(pathString));
         if (asset == null || !asset.Valid())
             return null;
 
@@ -82,10 +91,11 @@ public static class APKAssetManager
 
     public static string[] GetDirectoryContents(string directory)
     {
-        JString pathString = JNI.NewString(directory);
-        JObjectArray<JString> assets = JNI.CallObjectMethod<JObjectArray<JString>>(assetManager, JNI.GetMethodID(JNI.GetObjectClass(assetManager), "list", "(Ljava/lang/String;)[Ljava/lang/String;"), new JValue(pathString));
+        using JString pathString = JNI.NewString(directory);
+        using JClass assetManagerClass = JNI.GetObjectClass(assetManager);
+        using JObjectArray<JString> assets = JNI.CallObjectMethod<JObjectArray<JString>>(assetManager, JNI.GetMethodID(assetManagerClass, "list", "(Ljava/lang/String;)[Ljava/lang/String;"), new JValue(pathString));
 
-        string[] cleanAssets = assets.Select(a => a.GetString()).ToArray();
+        string[] cleanAssets = [.. assets.Select(a => a.GetString())];
         HandleException();
 
         return cleanAssets;
@@ -95,8 +105,9 @@ public static class APKAssetManager
     {
         // using `list` isn't as fast as just calling open, but this allows the function to not crash on debuggable builds of apps
         string containingDir = path[..path.LastIndexOf('/')];
-        JString pathString = JNI.NewString(containingDir);
-        JObjectArray<JString> assets = JNI.CallObjectMethod<JObjectArray<JString>>(assetManager, JNI.GetMethodID(JNI.GetObjectClass(assetManager), "list", "(Ljava/lang/String;)[Ljava/lang/String;"), new JValue(pathString));
+        using JString pathString = JNI.NewString(containingDir);
+        using JClass assetManagerClass = JNI.GetObjectClass(assetManager);
+        using JObjectArray<JString> assets = JNI.CallObjectMethod<JObjectArray<JString>>(assetManager, JNI.GetMethodID(assetManagerClass, "list", "(Ljava/lang/String;)[Ljava/lang/String;"), new JValue(pathString));
 
         bool exists = assets.Any(js =>
         {
@@ -120,10 +131,11 @@ public static class APKAssetManager
         if (assetManager?.Valid() ?? false)
             return;
 
-        JClass unityClass = JNI.FindClass("com/unity3d/player/UnityPlayer");
+        using JClass unityClass = JNI.FindClass("com/unity3d/player/UnityPlayer");
         JFieldID activityFieldId = JNI.GetStaticFieldID(unityClass, "currentActivity", "Landroid/app/Activity;");
-        JObject currentActivityObj = JNI.GetStaticObjectField<JObject>(unityClass, activityFieldId);
-        JObject assetManagerObj = JNI.CallObjectMethod<JObject>(currentActivityObj, JNI.GetMethodID(JNI.GetObjectClass(currentActivityObj), "getAssets", "()Landroid/content/res/AssetManager;"));
+        using JObject currentActivityObj = JNI.GetStaticObjectField<JObject>(unityClass, activityFieldId);
+        using JClass activityClass = JNI.GetObjectClass(currentActivityObj);
+        JObject assetManagerObj = JNI.CallObjectMethod<JObject>(currentActivityObj, JNI.GetMethodID(activityClass, "getAssets", "()Landroid/content/res/AssetManager;"));
 
         HandleException();
 
@@ -132,71 +144,79 @@ public static class APKAssetManager
 
     public class APKAssetStream : Stream, IDisposable
     {
+        private readonly JMethodID _availableJmid;
+        private readonly JMethodID _markSupportedJmid;
+        private readonly JMethodID _skipJmid;
+        private readonly JMethodID _resetJmid;
+        private readonly JMethodID _readJmid;
+        private readonly JMethodID _closeJmid;
+
+        private readonly JObject _streamObject;
+
+        private long _pos = 0;
+        private bool _disposed = false;
+
+        public APKAssetStream(JObject obj)
+        {
+            _streamObject = obj;
+
+            using JClass streamClass = JNI.GetObjectClass(_streamObject);
+
+            _availableJmid = JNI.GetMethodID(streamClass, "available", "()I");
+            _readJmid = JNI.GetMethodID(streamClass, "read", "([BII)I");
+            _markSupportedJmid = JNI.GetMethodID(streamClass, "markSupported", "()Z");
+            _skipJmid = JNI.GetMethodID(streamClass, "skip", "(J)J");
+            _resetJmid = JNI.GetMethodID(streamClass, "reset", "()V");
+            _closeJmid = JNI.GetMethodID(streamClass, "close", "()V");
+        }
+
         public override bool CanRead => true;
 
         public override bool CanSeek => false;
 
         public override bool CanWrite => false;
 
-        private JMethodID AVAILABLE_JMID;
         public override long Length
         {
             get
             {
-                int length = JNI.CallMethod<int>(_streamObject, AVAILABLE_JMID);
+                int length = JNI.CallMethod<int>(_streamObject, _availableJmid);
                 HandleException();
                 return length;
             }
         }
 
-        private JMethodID MARKSUPPORTED_JMID;
-        private JMethodID SKIP_JMID;
-        private JMethodID RESET_JMID;
         public override long Position
         {
             get => _pos;
             set
             {
-                bool canMark = JNI.CallMethod<bool>(_streamObject, MARKSUPPORTED_JMID);
+                bool canMark = JNI.CallMethod<bool>(_streamObject, _markSupportedJmid);
                 if (!canMark)
                     throw new NotImplementedException();
 
-                JNI.CallVoidMethod(_streamObject, RESET_JMID);
+                JNI.CallVoidMethod(_streamObject, _resetJmid);
                 if (value > 0)
                 {
-                    long val = JNI.CallMethod<long>(_streamObject, SKIP_JMID, new JValue(value));
+                    long val = JNI.CallMethod<long>(_streamObject, _skipJmid, new JValue(value));
                     _pos = val;
                 }
 
                 HandleException();
             }
         }
-        private long _pos = 0;
 
-        private JObject _streamObject;
-
-        public APKAssetStream(JObject obj)
-        {
-            _streamObject = obj;
-            AVAILABLE_JMID = JNI.GetMethodID(JNI.GetObjectClass(_streamObject), "available", "()I");
-            READ_JMID = JNI.GetMethodID(JNI.GetObjectClass(_streamObject), "read", "([BII)I");
-            MARKSUPPORTED_JMID = JNI.GetMethodID(JNI.GetObjectClass(_streamObject), "markSupported", "()Z");
-            SKIP_JMID = JNI.GetMethodID(JNI.GetObjectClass(_streamObject), "skip", "(J)J");
-            RESET_JMID = JNI.GetMethodID(JNI.GetObjectClass(_streamObject), "reset", "()V");
-        }
-
-        public override void Flush()
-        {
-        }
-
-        private JMethodID READ_JMID;
         public override int Read(byte[] buffer, int offset, int count)
         {
-            using JArray<sbyte> javaBuffer = JNI.NewArray<sbyte>(buffer.Length);
-            int read = JNI.CallMethod<int>(_streamObject, READ_JMID, new JValue(javaBuffer), new JValue(offset), new JValue(count));
+            using JArray<sbyte> javaBuffer = JNI.NewArray<sbyte>(count);
+
+            int read = JNI.CallMethod<int>(_streamObject, _readJmid, new JValue(javaBuffer), new JValue(offset), new JValue(count));
             HandleException();
 
-            for (int i = 0; i < count; i++)
+            if (read == -1)
+                return 0;
+
+            for (int i = 0; i < read; i++)
             {
                 buffer[i] = (byte)javaBuffer[i];
             }
@@ -205,28 +225,24 @@ public static class APKAssetManager
             return read;
         }
 
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            throw new NotImplementedException();
-        }
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotImplementedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotImplementedException();
+        public override void SetLength(long value) => throw new NotImplementedException();
+        public override void Flush() { }
 
-        public override void SetLength(long value)
+        protected override void Dispose(bool disposing)
         {
-            throw new NotImplementedException();
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            throw new NotImplementedException();
-        }
-
-        void IDisposable.Dispose()
-        {
-            JMethodID closeMethodID = JNI.GetMethodID(JNI.GetObjectClass(_streamObject), "close", "()V");
-            JNI.CallVoidMethod(_streamObject, closeMethodID);
-            _streamObject.Dispose();
-
-            HandleException();
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    JNI.CallVoidMethod(_streamObject, _closeJmid);
+                    _streamObject.Dispose();
+                    HandleException();
+                }
+                _disposed = true;
+            }
+            base.Dispose(disposing);
         }
     }
 }

@@ -43,7 +43,7 @@ public unsafe static partial class JNI
             VM = (JavaVM*)vmPtr;
 
             IntPtr envPtr = IntPtr.Zero;
-            Result res = VM->Functions->GetEnv(VM, out envPtr, 0x00010006 /*JNI_VERSION_1_6*/);
+            Result res = VM->Functions->GetEnv(VM, out envPtr, (int)Version.V1_6);
 
             if (res != Result.Detached && envPtr != IntPtr.Zero)
             {
