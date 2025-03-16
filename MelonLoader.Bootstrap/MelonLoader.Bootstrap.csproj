@@ -15,9 +15,13 @@
 
     <Import Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'" Project="BionicNativeAot.targets" />
 
-    <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true'">
+    <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true' And '$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'false'">
         <ExportsFile>linuxexports.def</ExportsFile>
     </PropertyGroup>
+
+	<PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'">
+		<ExportsFile>androidexports.def</ExportsFile>
+	</PropertyGroup>
 
     <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'">
         <LinkerArg Include="/DEF:Exports.def" />
