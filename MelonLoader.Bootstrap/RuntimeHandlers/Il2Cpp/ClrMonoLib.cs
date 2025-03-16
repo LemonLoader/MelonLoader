@@ -20,7 +20,7 @@ internal class ClrMonoLib
     {
         MelonDebug.Log("Loading CoreCLR Mono exports");
 
-        if (!NativeLibrary.TryLoad(Path.Combine(AndroidBootstrap.DotnetDir, "host", "fxr", "8.0.6", "libcoreclr.so"), out var hRuntime)
+        if (!NativeLibrary.TryLoad(Path.Combine(AndroidBootstrap.DotnetDir, "shared", "Microsoft.NETCore.App", "8.0.6", "libcoreclr.so"), out var hRuntime)
             || !NativeFunc.GetExport<SetThreadCheckerDelegate>(hRuntime, "mono_melonloader_set_thread_checker", out var setThreadChecker)
             || !NativeFunc.GetExport<ThreadSuspendReloadDelegate>(hRuntime, "mono_melonloader_thread_suspend_reload", out var threadSuspendReload)
             || !NativeFunc.GetExport<InstallUnhandledExceptionHookDelegate>(hRuntime, "mono_install_unhandled_exception_hook", out var installUnhandledExceptionHook)

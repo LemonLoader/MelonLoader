@@ -1,9 +1,5 @@
 ﻿using MelonLoader.Bootstrap.Utils;
 using System.Runtime.InteropServices;
-using MelonLoader.Bootstrap.Proxy.Android;
-using static MelonLoader.Bootstrap.RuntimeHandlers.Il2Cpp.ClrMonoLib;
-using System.Security.Cryptography;
-using System.Threading;
 
 namespace MelonLoader.Bootstrap.RuntimeHandlers.Il2Cpp;
 
@@ -18,7 +14,7 @@ internal static class Il2CppHandler
     private static bool il2cppInitDone;
     private static bool invokeStarted;
 
-    private const string NetVersion =
+    private const string DOTNET_VERSION =
 #if !ANDROID
         "net6";
 #else
@@ -65,7 +61,7 @@ internal static class Il2CppHandler
 
     private static void InitializeManaged()
     {
-        var managedDir = Path.Combine(LoaderConfig.Current.Loader.BaseDirectory, "MelonLoader", NetVersion);
+        var managedDir = Path.Combine(LoaderConfig.Current.Loader.BaseDirectory, "MelonLoader", DOTNET_VERSION);
         var runtimeConfigPath = Path.Combine(managedDir, "MelonLoader.runtimeconfig.json");
         var nativeHostPath = Path.Combine(managedDir, "MelonLoader.NativeHost.dll");
 
