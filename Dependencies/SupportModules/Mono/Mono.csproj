@@ -5,7 +5,7 @@
         <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
         <OutputPath>$(MLOutDir)/MelonLoader/Dependencies/SupportModules</OutputPath>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <DebugType>embedded</DebugType>
+        <DebugType>portable</DebugType>
     </PropertyGroup>
     <ItemGroup>
         <Reference Include="UnityEngine" HintPath="Libs\UnityEngine.dll" Private="False" />

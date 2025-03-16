@@ -1,26 +1,36 @@
-﻿using MelonLoader.Bootstrap.Logging;
+﻿using MelonLoader.Logging;
 using MelonLoader.Bootstrap.RuntimeHandlers.Il2Cpp;
 using MelonLoader.Bootstrap.RuntimeHandlers.Mono;
 using MelonLoader.Bootstrap.Utils;
 using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using MelonLoader.Bootstrap.Logging;
 using Tomlet;
 
 namespace MelonLoader.Bootstrap;
 
 public static class Core
 {
-    public static nint LibraryHandle { get; internal set; }
-
-    internal static InternalLogger Logger { get; private set; } = new(Color.BlueViolet, "MelonLoader.Bootstrap");
-    public static string DataDir { get; internal set; } = null!;
-    public static string GameDir { get; internal set; } = null!;
-
 #if LINUX
-    [System.Runtime.InteropServices.UnmanagedCallersOnly(EntryPoint = "Init")]
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    private delegate nint DlsymFn(nint handle, string symbol);
+    private static readonly DlsymFn HookDlsymDelegate = HookDlsym;
 #endif
+#if WINDOWS
+    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+    private delegate nint GetProcAddressFn(nint handle, string symbol);
+    private static readonly GetProcAddressFn HookGetProcAddressDelegate = HookGetProcAddress;
+#endif
+
+    public static nint LibraryHandle { get; private set; }
+
+    internal static InternalLogger Logger { get; private set; } = new(ColorARGB.BlueViolet, "MelonLoader.Bootstrap");
+    internal static InternalLogger PlayerLogger { get; private set; } = new(ColorARGB.Turquoise, "UNITY");
+    public static string DataDir { get; private set; } = null!;
+    public static string GameDir { get; private set; } = null!;
+
+    private static bool _runtimeInitialised;
+
     [RequiresDynamicCode("Calls InitConfig")]
     public static void Init(nint moduleHandle)
     {
@@ -49,17 +59,64 @@ public static class Core
         
         MelonLogger.Init();
 
-        MelonDebug.Log("Starting probe for runtime");
-
-        if (Il2CppHandler.TryInitialize()
-            || MonoHandler.TryInitialize())
-        {
-            ConsoleHandler.NullHandles();
-            return;
-        }
-
-        Logger.Error("Current game runtime is not supported. The game might have a modified runtime or is not a real Unity game.");
+#if LINUX
+        PltHook.InstallHooks
+        ([
+            ("dlsym", Marshal.GetFunctionPointerForDelegate(HookDlsymDelegate))
+        ]);
+#endif
+#if WINDOWS
+        PltHook.InstallHooks
+        ([
+            ("GetProcAddress", Marshal.GetFunctionPointerForDelegate(HookGetProcAddressDelegate))
+        ]);
+#endif
     }
+
+
+    private static readonly Il2CppLib.InitFn Il2CPPInitDetour = Il2CppHandler.InitDetour;
+    private static readonly Il2CppLib.RuntimeInvokeFn InvokeDetour = Il2CppHandler.InvokeDetour;
+    private static readonly MonoLib.JitInitVersionFn MonoInitDetour = MonoHandler.InitDetour;
+    private static readonly MonoLib.JitParseOptionsFn JitParseOptionsDetour = MonoHandler.JitParseOptionsDetour;
+    private static readonly MonoLib.DebugInitFn DebugInitDetour = MonoHandler.DebugInitDetour;
+    private static readonly unsafe MonoLib.ImageOpenFromDataWithNameFn ImageOpenFromDataWithName = MonoHandler.ImageOpenFromDataWithNameDetour;
+
+    private static readonly Dictionary<string, (Action<nint> InitMethod, IntPtr detourPtr)> SymbolRedirects = new()
+    {
+        { "il2cpp_init", (Il2CppHandler.Initialize, Marshal.GetFunctionPointerForDelegate(Il2CPPInitDetour))},
+        { "il2cpp_runtime_invoke", (Il2CppHandler.Initialize, Marshal.GetFunctionPointerForDelegate(InvokeDetour))},
+        { "mono_jit_init_version", (MonoHandler.Initialize, Marshal.GetFunctionPointerForDelegate(MonoInitDetour))},
+        { "mono_jit_parse_options", (MonoHandler.Initialize, Marshal.GetFunctionPointerForDelegate(JitParseOptionsDetour))},
+        { "mono_debug_init", (MonoHandler.Initialize, Marshal.GetFunctionPointerForDelegate(DebugInitDetour))},
+        { "mono_image_open_from_data_with_name", (MonoHandler.Initialize, Marshal.GetFunctionPointerForDelegate(ImageOpenFromDataWithName))}
+    };
+
+    private static nint RedirectSymbol(nint handle, string symbolName, nint originalSymbolAddress)
+    {
+        if (!SymbolRedirects.TryGetValue(symbolName, out var redirect))
+            return originalSymbolAddress;
+
+        MelonDebug.Log($"Redirecting {symbolName}");
+        if (!_runtimeInitialised)
+            redirect.InitMethod(handle);
+        _runtimeInitialised = true;
+        return redirect.detourPtr;
+    }
+
+#if LINUX
+    private static nint HookDlsym(nint handle, string symbol)
+    {
+        nint originalSymbolAddress = LibcNative.Dlsym(handle, symbol);
+        return RedirectSymbol(handle, symbol, originalSymbolAddress);
+    }
+#endif
+#if WINDOWS
+    private static nint HookGetProcAddress(nint handle, string symbol)
+    {
+        nint originalSymbolAddress = WindowsNative.GetProcAddress(handle, symbol);
+        return RedirectSymbol(handle, symbol, originalSymbolAddress);
+    }
+#endif
 
     [RequiresDynamicCode("Dynamically accesses LoaderConfig properties")]
     public static void InitConfig()
@@ -94,12 +151,14 @@ public static class Core
 
         LoaderConfig.Current.Loader.BaseDirectory = baseDir;
 
-#if DEBUG
-        LoaderConfig.Current.Loader.DebugMode = true;
-#else
         if (ArgParser.IsDefined("melonloader.debug"))
             LoaderConfig.Current.Loader.DebugMode = true;
-#endif
+
+        if (ArgParser.IsDefined("--melonloader.captureplayerlogs"))
+            LoaderConfig.Current.Loader.CapturePlayerLogs = true;
+
+        if (Enum.TryParse<LoaderConfig.CoreConfig.HarmonyLogVerbosity>(ArgParser.GetValue("--melonloader.harmonyloglevel"), out var harmonyLogLevel))
+            LoaderConfig.Current.Loader.HarmonyLogLevel = harmonyLogLevel;
 
         if (ArgParser.IsDefined("no-mods"))
             LoaderConfig.Current.Loader.Disable = true;
@@ -131,12 +190,26 @@ public static class Core
         if (uint.TryParse(ArgParser.GetValue("melonloader.maxlogs"), out var maxLogs))
             LoaderConfig.Current.Logs.MaxLogs = maxLogs;
 
+        if (ArgParser.IsDefined("melonloader.debugsuspend"))
+            LoaderConfig.Current.MonoDebugServer.DebugSuspend = true;
+
+        var debugIpAddress = ArgParser.GetValue("melonloader.debugipaddress");
+        if (debugIpAddress != null)
+            LoaderConfig.Current.MonoDebugServer.DebugIpAddress = debugIpAddress;
+
+        if (uint.TryParse(ArgParser.GetValue("melonloader.debugport"), out var debugPort))
+            LoaderConfig.Current.MonoDebugServer.DebugPort = debugPort;
+        
         var unityVersionOverride = ArgParser.GetValue("melonloader.unityversion");
         if (unityVersionOverride != null)
             LoaderConfig.Current.UnityEngine.VersionOverride = unityVersionOverride;
 
         if (ArgParser.IsDefined("melonloader.disableunityclc"))
             LoaderConfig.Current.UnityEngine.DisableConsoleLogCleaner = true;
+
+        var monoSearchPathOverride = ArgParser.GetValue("melonloader.monosearchpathoverride");
+        if (monoSearchPathOverride != null)
+            LoaderConfig.Current.UnityEngine.MonoSearchPathOverride = monoSearchPathOverride;
 
         if (ArgParser.IsDefined("melonloader.agfregenerate"))
             LoaderConfig.Current.UnityEngine.ForceRegeneration = true;

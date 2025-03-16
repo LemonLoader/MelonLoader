@@ -5,7 +5,7 @@
         <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
         <OutputPath>$(MLOutDir)/MelonLoader/Dependencies/CompatibilityLayers</OutputPath>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <DebugType>embedded</DebugType>
+        <DebugType>portable</DebugType>
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\..\MelonLoader\MelonLoader.csproj" Private="false" />

@@ -5,40 +5,24 @@ namespace MelonLoader.Bootstrap.RuntimeHandlers.Mono;
 
 internal class MonoLib
 {
-    private static readonly string[] folderNames =
-    [
-        "MonoBleedingEdge",
-        "Mono",
-        "MonoBleedingEdge.x64",
-        "MonoBleedingEdge.x86"
-    ];
-
-    private static readonly string[] libNames =
-    [
-#if WINDOWS
-        "mono.dll",
-        "mono-2.0-bdwgc.dll",
-        "mono-2.0-sgen.dll",
-        "mono-2.0-boehm.dll"
-#elif LINUX
-        "libmono.so",
-        "libmonobdwgc-2.0.so"
-#endif
-    ];
-
     private static readonly List<Delegate> passedDelegates = [];
 
+    public bool IsOld { get; set; }
     public required nint Handle { get; init; }
-    public required bool IsOld { get; init; }
 
-    public required nint JitInitVersionPtr { get; init; }
-    public required nint RuntimeInvokePtr { get; init; }
+    public required JitInitVersionFn JitInitVersion { get; init; }
+    public required JitParseOptionsFn JitParseOptions { get; init; }
+    public required ImageOpenFromDataWithNameFn ImageOpenFromDataWithName { get; init; }
 
     public required ThreadCurrentFn ThreadCurrent { get; init; }
+    public required DebugInitFn DebugInit { get; init; }
+    public required ConfigParseFn ConfigParse { get; init; }
     public required ThreadSetMainFn ThreadSetMain { get; init; }
     public required RuntimeInvokeFn RuntimeInvoke { get; init; }
     public required StringNewFn StringNew { get; init; }
     public required AssemblyGetObjectFn AssemblyGetObject { get; init; }
+    public required SetAssembliesPathFn SetAssembliesPath { get; init; }
+    public required AssemblyGetrootdirFn AssemblyGetrootdir { get; init; }
     public required MethodGetNameFn MethodGetName { get; init; }
     public required AddInternalCallFn AddInternalCall { get; init; }
     public required DomainAssemblyOpenFn DomainAssemblyOpen { get; init; }
@@ -49,35 +33,26 @@ internal class MonoLib
     public required InstallAssemblySearchHookFn InstallAssemblySearchHook { get; init; }
     public required InstallAssemblyLoadHookFn InstallAssemblyLoadHook { get; init; }
 
-    public DebugDomainCreateFn? DebugDomainCreate { get; init; }
     public DomainSetConfigFn? DomainSetConfig { get; init; }
+    public DebugEnabledFn? DebugEnabled { get; init; }
 
-    public static MonoLib? TryLoad(string searchDir)
+    public static MonoLib? TryLoad(nint hRuntime)
     {
-        var monoPath = FindMonoPath(searchDir);
-        if (monoPath == null)
-            return null;
-
-        if (!NativeLibrary.TryLoad(monoPath, out var hRuntime))
-            return null;
-
-        var monoName = Path.GetFileNameWithoutExtension(monoPath);
-#if LINUX
-        if (monoName.StartsWith("lib"))
-            monoName = monoName[3..];
-#endif
-
-        var isOld = monoName.Equals("mono", StringComparison.OrdinalIgnoreCase);
-
         MelonDebug.Log("Loading Mono exports");
 
-        if (!NativeLibrary.TryGetExport(hRuntime, "mono_jit_init_version", out var jitInitVersionPtr)
-            || !NativeLibrary.TryGetExport(hRuntime, "mono_runtime_invoke", out var runtimeInvokePtr)
+        if (!NativeFunc.GetExport<JitInitVersionFn>(hRuntime, "mono_jit_init_version", out var jitInitVersion)
+            || !NativeFunc.GetExport<RuntimeInvokeFn>(hRuntime, "mono_runtime_invoke", out var runtimeInvoke)
+            || !NativeFunc.GetExport<JitParseOptionsFn>(hRuntime, "mono_jit_parse_options", out var jitParseOptions)
+            || !NativeFunc.GetExport<DebugInitFn>(hRuntime, "mono_debug_init", out var debugInit)
+            || !NativeFunc.GetExport<ImageOpenFromDataWithNameFn>(hRuntime, "mono_image_open_from_data_with_name", out var imageOpenFromDataWithName)
+            || !NativeFunc.GetExport<ConfigParseFn>(hRuntime, "mono_config_parse", out var configParse)
             || !NativeFunc.GetExport<ThreadCurrentFn>(hRuntime, "mono_thread_current", out var threadCurrent)
             || !NativeFunc.GetExport<ThreadSetMainFn>(hRuntime, "mono_thread_set_main", out var threadSetMain)
             || !NativeFunc.GetExport<StringNewFn>(hRuntime, "mono_string_new", out var stringNew)
             || !NativeFunc.GetExport<AssemblyGetObjectFn>(hRuntime, "mono_assembly_get_object", out var assemblyGetObject)
             || !NativeFunc.GetExport<MethodGetNameFn>(hRuntime, "mono_method_get_name", out var methodGetName)
+            || !NativeFunc.GetExport<SetAssembliesPathFn>(hRuntime, "mono_set_assemblies_path", out var setAssembliesPath)
+            || !NativeFunc.GetExport<AssemblyGetrootdirFn>(hRuntime, "mono_assembly_getrootdir", out var assemblyGetRootDir)
             || !NativeFunc.GetExport<AddInternalCallFn>(hRuntime, "mono_add_internal_call", out var addInternalCall)
             || !NativeFunc.GetExport<DomainAssemblyOpenFn>(hRuntime, "mono_domain_assembly_open", out var domainAssemblyOpen)
             || !NativeFunc.GetExport<AssemblyGetImageFn>(hRuntime, "mono_assembly_get_image", out var assemblyGetImage)
@@ -88,66 +63,36 @@ internal class MonoLib
             || !NativeFunc.GetExport<InstallAssemblyLoadHookFn>(hRuntime, "mono_install_assembly_load_hook", out var installAssemblyLoadHook))
             return null;
 
-        var runtimeInvoke = Marshal.GetDelegateForFunctionPointer<RuntimeInvokeFn>(runtimeInvokePtr);
-
-        var debugDomainCreate = NativeFunc.GetExport<DebugDomainCreateFn>(hRuntime, "mono_debug_domain_create");
+        var debugEnabled = NativeFunc.GetExport<DebugEnabledFn>(hRuntime, "mono_debug_enabled");
         var domainSetConfig = NativeFunc.GetExport<DomainSetConfigFn>(hRuntime, "mono_domain_set_config");
 
         return new()
         {
             Handle = hRuntime,
-            IsOld = isOld,
             RuntimeInvoke = runtimeInvoke,
-            JitInitVersionPtr = jitInitVersionPtr,
-            RuntimeInvokePtr = runtimeInvokePtr,
+            JitInitVersion = jitInitVersion,
+            JitParseOptions = jitParseOptions,
             ThreadCurrent = threadCurrent,
+            DebugEnabled = debugEnabled,
+            DebugInit = debugInit,
             ThreadSetMain = threadSetMain,
             StringNew = stringNew,
             AssemblyGetObject = assemblyGetObject,
             MethodGetName = methodGetName,
+            SetAssembliesPath = setAssembliesPath,
+            AssemblyGetrootdir = assemblyGetRootDir,
             AddInternalCall = addInternalCall,
             DomainAssemblyOpen = domainAssemblyOpen,
             AssemblyGetImage = assemblyGetImage,
             ClassFromName = classFromName,
             ClassGetMethodFromName = classGetMethodFromName,
+            ImageOpenFromDataWithName = imageOpenFromDataWithName,
             InstallAssemblyPreloadHook = installAssemblyPreloadHook,
             InstallAssemblySearchHook = installAssemblySearchHook,
             InstallAssemblyLoadHook = installAssemblyLoadHook,
             DomainSetConfig = domainSetConfig,
-            DebugDomainCreate = debugDomainCreate
+            ConfigParse = configParse
         };
-    }
-
-    private static string? FindMonoPath(string searchDir)
-    {
-        foreach (var folder in folderNames)
-        {
-            foreach (var lib in libNames)
-            {
-                var path = Path.Combine(searchDir, folder, lib);
-                if (File.Exists(path))
-                    return path;
-
-                path = Path.Combine(searchDir, folder, "EmbedRuntime", lib);
-                if (File.Exists(path))
-                    return path;
-
-                path = Path.Combine(searchDir, folder, lib);
-                if (File.Exists(path))
-                    return path;
-
-                path = Path.Combine(searchDir, folder, "EmbedRuntime", lib);
-                if (File.Exists(path))
-                    return path;
-
-                path = Path.Combine(searchDir, folder, "x86_64", lib);
-                if (File.Exists(path))
-                    return path;
-            }
-        }
-
-        MelonDebug.Log("Probe for Mono failed");
-        return null;
     }
 
     public void SetCurrentThreadAsMain()
@@ -195,7 +140,11 @@ internal class MonoLib
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint JitInitVersionFn(nint name, nint b);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void DebugDomainCreateFn(nint domain);
+    public delegate void JitParseOptionsFn(nint argc, string[] argv);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void DebugInitFn(MonoDebugFormat format);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate bool DebugEnabledFn();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint ThreadCurrentFn();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -206,6 +155,10 @@ internal class MonoLib
     public unsafe delegate nint RuntimeInvokeFn(nint method, nint obj, void** args, ref nint ex);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint AssemblyGetObjectFn(nint domain, nint assembly);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate nint SetAssembliesPathFn(string domain);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate string AssemblyGetrootdirFn();
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint InstallAssemblyPreloadHookFn(AssemblyPreloadHookFn func, nint userData);
@@ -235,15 +188,35 @@ internal class MonoLib
     public delegate nint DomainAssemblyOpenFn(nint domain, string path);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    public delegate void DomainSetConfigFn(nint domain, string configPath, nint name);
+    public delegate void DomainSetConfigFn(nint domain, string configPath, string configFile);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    public delegate void ConfigParseFn(string? configPath);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint AssemblyPreloadHookFn(ref AssemblyName name, nint assemblyPaths, nint userData);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    public unsafe delegate nint ImageOpenFromDataWithNameFn(byte* data, uint dataLen, bool needCopy, ref MonoImageOpenStatus status, bool refonly, string name);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint AssemblySearchHookFn(ref AssemblyName name, nint userData);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void AssemblyLoadHookFn(nint monoAssembly, nint userData);
 
+    public enum MonoDebugFormat
+    {
+        MONO_DEBUG_FORMAT_NONE,
+        MONO_DEBUG_FORMAT_MONO,
+        MONO_DEBUG_FORMAT_DEBUGGER
+    }
+    
+    public enum MonoImageOpenStatus {
+        MONO_IMAGE_OK,
+        MONO_IMAGE_ERROR_ERRNO,
+        MONO_IMAGE_MISSING_ASSEMBLYREF,
+        MONO_IMAGE_IMAGE_INVALID
+    }
+    
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct AssemblyName
     {

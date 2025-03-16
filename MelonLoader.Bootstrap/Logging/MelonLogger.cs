@@ -1,14 +1,12 @@
 ﻿using MelonLoader.Bootstrap.Utils;
-using Pastel;
-using System.Drawing;
-using MelonLoader.Bootstrap.Proxy.Android;
+using MelonLoader.Logging;
 
 namespace MelonLoader.Bootstrap.Logging;
 
 internal static class MelonLogger
 {
     private static readonly string timeFormat = "HH:mm:ss.fff";
-    private static readonly Color timeColor = Color.LimeGreen;
+    private static readonly ColorARGB timeColor = ColorARGB.LimeGreen;
     private static readonly ConsoleColor legacyTimeColor = ConsoleColor.Green;
 
     private static readonly List<StreamWriter> logFiles = [];
@@ -82,6 +80,7 @@ internal static class MelonLogger
         try
         {
             var latest = new FileStream(latestPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+            latest.Seek(0, SeekOrigin.End);
             logFiles.Add(new StreamWriter(latest)
             {
                 AutoFlush = true
@@ -96,6 +95,7 @@ internal static class MelonLogger
         try
         {
             var cached = new FileStream(cachedPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+            cached.Seek(0, SeekOrigin.End);
             logFiles.Add(new StreamWriter(cached)
             {
                 AutoFlush = true
@@ -110,6 +110,16 @@ internal static class MelonLogger
         {
             Core.Logger.Error("Failed to create any log files. Logging to console only");
         }
+
+        if (LoaderConfig.Current.Loader.CapturePlayerLogs)
+        {
+#if LINUX
+            LinuxPlayerLogsMirroring.SetupPlayerLogMirroring();
+#endif
+#if WINDOWS
+            WindowsPlayerLogsMirroring.SetupPlayerLogMirroring();
+#endif
+        }
     }
 
     private static void LogToFiles(string? log)
@@ -120,6 +130,7 @@ internal static class MelonLogger
 
         foreach (var file in logFiles)
         {
+            file.BaseStream.Seek(0, SeekOrigin.End);
             if (log == null)
             {
                 file.WriteLine();
@@ -130,7 +141,7 @@ internal static class MelonLogger
         }
     }
 
-    public static void Log(ColorRGB msgColor, ReadOnlySpan<char> msg)
+    public static void Log(ColorARGB msgColor, ReadOnlySpan<char> msg)
     {
         var time = DateTime.Now.ToString(timeFormat);
 
@@ -159,7 +170,7 @@ internal static class MelonLogger
         Console.WriteLine($"[{time.Pastel(timeColor)}] {msg.Pastel(msgColor)}");
     }
 
-    public static void Log(ColorRGB msgColor, ReadOnlySpan<char> msg, ColorRGB sectionColor, ReadOnlySpan<char> sectionName)
+    public static void Log(ColorARGB msgColor, ReadOnlySpan<char> msg, ColorARGB sectionColor, ReadOnlySpan<char> sectionName)
     {
         var time = DateTime.Now.ToString(timeFormat);
 
@@ -204,7 +215,7 @@ internal static class MelonLogger
             return;
         }
 
-        Log(Color.Yellow, msg);
+        Log(ColorARGB.Yellow, msg);
     }
 
     public static void LogWarning(ReadOnlySpan<char> msg, ReadOnlySpan<char> sectionName)
@@ -217,7 +228,7 @@ internal static class MelonLogger
             return;
         }
 
-        Log(Color.Yellow, msg, Color.Yellow, sectionName);
+        Log(ColorARGB.Yellow, msg, ColorARGB.Yellow, sectionName);
     }
 
     public static void LogError(ReadOnlySpan<char> msg)
@@ -237,7 +248,7 @@ internal static class MelonLogger
             return;
         }
 
-        Console.WriteLine($"[{time}] {msg}".Pastel(Color.IndianRed));
+        Console.WriteLine($"[{time}] {msg}".Pastel(ColorARGB.IndianRed));
     }
 
     public static void LogError(ReadOnlySpan<char> msg, ReadOnlySpan<char> sectionName)
@@ -257,10 +268,10 @@ internal static class MelonLogger
             return;
         }
 
-        Console.WriteLine($"[{time}] [{sectionName}] {msg}".Pastel(Color.IndianRed));
+        Console.WriteLine($"[{time}] [{sectionName}] {msg}".Pastel(ColorARGB.IndianRed));
     }
 
-    public static void LogMelonInfo(ColorRGB nameColor, ReadOnlySpan<char> name, ReadOnlySpan<char> info)
+    public static void LogMelonInfo(ColorARGB nameColor, ReadOnlySpan<char> name, ReadOnlySpan<char> info)
     {
         var time = DateTime.Now.ToString(timeFormat);
 

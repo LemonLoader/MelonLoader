@@ -19,6 +19,9 @@ public class LoaderConfig
 
     [TomlProperty("logs")]
     public LogsConfig Logs { get; internal set; } = new();
+    
+    [TomlProperty("mono_debug_server")]
+    public MonoDebugServerConfig MonoDebugServer { get; internal set; } = new();
 
     [TomlProperty("unityengine")]
     public UnityEngineConfig UnityEngine { get; internal set; } = new();
@@ -40,6 +43,14 @@ public class LoaderConfig
 #if DEBUG
             = true;
 #endif
+
+        [TomlProperty("capture_player_logs")]
+        [TomlPrecedingComment("Capture all Unity player logs into MelonLoader's logs even if the game disabled them. NOTE: Depending on the game or Unity version, these logs can be overly verbose. Equivalent to the '--melonloader.captureplayerlogs' launch option")]
+        public bool CapturePlayerLogs { get; internal set; }
+
+        [TomlProperty("harmony_log_level")]
+        [TomlPrecedingComment("The maximum Harmony log verbosity to capture into MelonLoader's logs. Possible values in verbosity order are: \"None\", \"Error\", \"Warn\", \"Info\", \"Debug\", or \"IL\". Equivalent to the '--melonloader.harmonyloglevel' launch option")]
+        public HarmonyLogVerbosity HarmonyLogLevel { get; internal set; } = HarmonyLogVerbosity.Warn;
 
         [TomlProperty("force_quit")]
         [TomlPrecedingComment("Only use this if the game freezes when trying to quit. Equivalent to the '--quitfix' launch option")]
@@ -64,7 +75,17 @@ public class LoaderConfig
             Rainbow,
             RandomRainbow,
             Lemon
-        };
+        }
+
+        public enum HarmonyLogVerbosity
+        {
+            None,
+            Info,
+            Warn,
+            Error,
+            Debug,
+            IL
+        }
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -96,8 +117,32 @@ public class LoaderConfig
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public class MonoDebugServerConfig
+    {
+        [TomlProperty("debug_suspend")]
+        [TomlPrecedingComment("Let the Mono debug server wait until a debugger is attached when debug_mode is true (only for Mono games). Equivalent to the '--melonloader.debugsuspend' launch option")]
+        public bool DebugSuspend { get; internal set; }
+
+        [TomlProperty("debug_ip_address")]
+        [TomlPrecedingComment("The IP address the Mono debug server will listen to when debug_mode is true (only for Mono games). Equivalent to the '--melonloader.debugipaddress' launch option")]
+        public string DebugIpAddress { get; internal set; } = "127.0.0.1";
+
+        [TomlProperty("debug_port")]
+        [TomlPrecedingComment("The port the Mono debug server will listen to when debug_mode is true (only for Mono games). Equivalent to the '--melonloader.debugport' launch option")]
+        public uint DebugPort { get; internal set; } = 55555;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public class UnityEngineConfig
     {
+        [TomlNonSerialized]
+        private const string MonoPathSeparatorDescription =
+#if WINDOWS
+            "semicolon (;)";
+#elif LINUX
+            "colon (:)";
+#endif
+
         [TomlProperty("version_override")]
         [TomlPrecedingComment("Overrides the detected UnityEngine version. Equivalent to the '--melonloader.unityversion' launch option")]
         public string VersionOverride { get; internal set; } = "";
@@ -105,6 +150,10 @@ public class LoaderConfig
         [TomlProperty("disable_console_log_cleaner")]
         [TomlPrecedingComment("Disables the console log cleaner (only applies to Il2Cpp games). Equivalent to the '--melonloader.disableunityclc' launch option")]
         public bool DisableConsoleLogCleaner { get; internal set; }
+
+        [TomlProperty("mono_search_path_override")]
+        [TomlPrecedingComment($"A {MonoPathSeparatorDescription} separated list of paths that Mono will prioritise to seek mscorlib and core libraries before the Managed folder and Melon's included set of core libraries. Equivalent to the '--melonloader.monosearchpathoverride' launch option")]
+        public string MonoSearchPathOverride { get; internal set; } = "";
 
         [TomlProperty("force_offline_generation")]
         [TomlPrecedingComment("Forces the Il2Cpp Assembly Generator to run without contacting the remote API. Equivalent to the '--melonloader.agfoffline' launch option")]
