@@ -13,7 +13,7 @@ public static class AndroidProxy
     [DllImport("liblog", EntryPoint = "__android_log_print")]
     private static extern int LogInternal(int prio, string tag,  string text);
 
-    public static void Log(string text) => LogInternal(3, "MelonLoader", text);
+    public static void Log(string text) => LogInternal(4, "MelonLoader", text);
    
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     [RequiresDynamicCode("Calls MelonLoader.Bootstrap.Proxy.Android.AndroidBootstrap.LoadBootstrap()")]

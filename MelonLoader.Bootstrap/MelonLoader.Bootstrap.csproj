@@ -10,6 +10,9 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <NoWarn>LNK4099</NoWarn>
         <InvariantGlobalization>true</InvariantGlobalization>
+		
+		<AssemblyName Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'">libmain</AssemblyName>
+		<AssemblyName Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'">version</AssemblyName>
     </PropertyGroup>
 
     <Import Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'" Project="BionicNativeAot.targets" />
@@ -92,12 +95,6 @@
         <WriteLinesToFile File="$(ExportsFile)"
             Lines="$([System.IO.File]::ReadAllText($(ExportsFile)).Replace('V1.0',''))"
             Overwrite="true" />
-    </Target>
-
-    <Target Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'" Name="RenameBinary"
-        AfterTargets="Build">
-        <Move SourceFiles="$(PublishDir)/$(TargetName).dll"
-            DestinationFiles="$(PublishDir)/version.dll" />
     </Target>
 
 </Project>

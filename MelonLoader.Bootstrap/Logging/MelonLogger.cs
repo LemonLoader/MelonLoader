@@ -1,5 +1,6 @@
 ﻿using MelonLoader.Bootstrap.Utils;
 using MelonLoader.Logging;
+using System.Xml.Linq;
 
 namespace MelonLoader.Bootstrap.Logging;
 
@@ -124,10 +125,6 @@ internal static class MelonLogger
 
     private static void LogToFiles(string? log)
     {
-#if ANDROID
-        Proxy.Android.AndroidProxy.Log(log ?? "");
-#endif
-
         foreach (var file in logFiles)
         {
             file.BaseStream.Seek(0, SeekOrigin.End);
@@ -167,7 +164,11 @@ internal static class MelonLogger
             return;
         }
 
+#if !ANDROID
         Console.WriteLine($"[{time.Pastel(timeColor)}] {msg.Pastel(msgColor)}");
+#else
+        Proxy.Android.AndroidProxy.Log($"[{time.Pastel(timeColor)}] {msg.Pastel(msgColor)}");
+#endif
     }
 
     public static void Log(ColorARGB msgColor, ReadOnlySpan<char> msg, ColorARGB sectionColor, ReadOnlySpan<char> sectionName)
@@ -202,7 +203,11 @@ internal static class MelonLogger
             return;
         }
 
+#if !ANDROID
         Console.WriteLine($"[{time.Pastel(timeColor)}] [{sectionName.Pastel(sectionColor)}] {msg.Pastel(msgColor)}");
+#else
+        Proxy.Android.AndroidProxy.Log($"[{time.Pastel(timeColor)}] [{sectionName.Pastel(sectionColor)}] {msg.Pastel(msgColor)}");
+#endif
     }
 
     public static void LogWarning(ReadOnlySpan<char> msg)
@@ -248,7 +253,11 @@ internal static class MelonLogger
             return;
         }
 
+#if !ANDROID
         Console.WriteLine($"[{time}] {msg}".Pastel(ColorARGB.IndianRed));
+#else
+        Proxy.Android.AndroidProxy.Log($"[{time}] {msg}".Pastel(ColorARGB.IndianRed));
+#endif
     }
 
     public static void LogError(ReadOnlySpan<char> msg, ReadOnlySpan<char> sectionName)
@@ -268,7 +277,11 @@ internal static class MelonLogger
             return;
         }
 
+#if !ANDROID
         Console.WriteLine($"[{time}] [{sectionName}] {msg}".Pastel(ColorARGB.IndianRed));
+#else
+        Proxy.Android.AndroidProxy.Log($"[{time}] [{sectionName}] {msg}".Pastel(ColorARGB.IndianRed));
+#endif
     }
 
     public static void LogMelonInfo(ColorARGB nameColor, ReadOnlySpan<char> name, ReadOnlySpan<char> info)
@@ -301,7 +314,11 @@ internal static class MelonLogger
             return;
         }
 
+#if !ANDROID
         Console.WriteLine($"[{time.Pastel(timeColor)}] {name.Pastel(nameColor)} {info}");
+#else
+        Proxy.Android.AndroidProxy.Log($"[{time.Pastel(timeColor)}] {name.Pastel(nameColor)} {info}");
+#endif
     }
 
     public static void LogSpacer()
@@ -311,6 +328,11 @@ internal static class MelonLogger
         if (!ConsoleHandler.IsOpen)
             return;
 
+
+#if !ANDROID
         Console.WriteLine();
+#else
+        Proxy.Android.AndroidProxy.Log("");
+#endif
     }
 }
