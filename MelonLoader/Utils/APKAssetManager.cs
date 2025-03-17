@@ -1,8 +1,10 @@
 ﻿#if ANDROID
-using MelonLoader.Bootstrap.Java;
-using MelonLoader.Bootstrap.Logging;
+using MelonLoader.Java;
+using System;
+using System.IO;
+using System.Linq;
 
-namespace MelonLoader.Bootstrap.Proxy.Android;
+namespace MelonLoader.Utils;
 
 public static class APKAssetManager
 {
@@ -31,12 +33,12 @@ public static class APKAssetManager
             using FileStream fileStream = File.Open(outPath, FileMode.Create);
             using Stream? assetStream = GetAssetStream(itemPath);
             if (assetStream == null)
-            {
-                MelonLogger.LogError("Failed to get asset stream: " + itemPath, "APKAssetManager");
-                return;
-            }
+                throw new Exception("[APKAssetManager] Failed to get asset stream: " + itemPath);
 
-            assetStream.CopyTo(fileStream);
+            byte[] buffer = new byte[81920];
+            int bytesRead;
+            while ((bytesRead = assetStream.Read(buffer, 0, buffer.Length)) > 0)
+                fileStream.Write(buffer, 0, bytesRead);
 
             return;
         }

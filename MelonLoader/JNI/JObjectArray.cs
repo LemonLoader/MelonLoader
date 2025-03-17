@@ -1,33 +1,29 @@
 ﻿#if ANDROID
-namespace MelonLoader.Bootstrap.Java;
+namespace MelonLoader.Java;
 
 using System.Collections;
 using System.Collections.Generic;
 
-public class JArray<T> : JObject, IEnumerable<T>
+public class JObjectArray<T> : JObject, IEnumerable<T> where T : JObject, new()
 {
-    public JArray() : base() { }
-
-    public JArray(int size) => JNI.NewArray<T>(size);
-
     public int Length => JNI.GetArrayLength(this);
 
     public T this[int index]
     {
-        get => JNI.GetArrayElement(this, index);
-        set => JNI.SetArrayElement(this, index, value);
+        get => JNI.GetObjectArrayElement(this, index);
+        set => JNI.SetObjectArrayElement(this, index, value);
     }
 
-    public T[] GetElements()
+    public void SetElement(T value, int index)
     {
-        return JNI.GetArrayElements(this);
+        JNI.SetObjectArrayElement(this, index, value);
     }
 
     public IEnumerator<T> GetEnumerator()
     {
         for (int i = 0; i < this.Length; i++)
         {
-            yield return JNI.GetArrayElement(this, i);
+            yield return JNI.GetObjectArrayElement(this, i);
         }
     }
 

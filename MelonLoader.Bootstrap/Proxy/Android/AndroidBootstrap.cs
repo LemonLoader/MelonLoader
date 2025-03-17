@@ -2,7 +2,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
-using MelonLoader.Bootstrap.Java;
+using MelonLoader.Java;
+using MelonLoader.Utils;
 
 namespace MelonLoader.Bootstrap.Proxy.Android;
 

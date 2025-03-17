@@ -1,5 +1,5 @@
 ﻿#if ANDROID
-namespace MelonLoader.Bootstrap.Java;
+namespace MelonLoader.Java;
 
 using System;
 using System.Runtime.InteropServices;

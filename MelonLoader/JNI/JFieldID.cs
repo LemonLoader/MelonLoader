@@ -1,5 +1,7 @@
 ﻿#if ANDROID
-namespace MelonLoader.Bootstrap.Java;
+using System;
+
+namespace MelonLoader.Java;
 
 public readonly struct JFieldID : IEquatable<JFieldID>
 {

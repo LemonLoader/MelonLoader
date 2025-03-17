@@ -1,5 +1,7 @@
 ﻿#if ANDROID
-namespace MelonLoader.Bootstrap.Java;
+using System.Collections.Generic;
+
+namespace MelonLoader.Java;
 
 public class JClass : JObject
 {

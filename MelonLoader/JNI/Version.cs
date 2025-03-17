@@ -1,5 +1,5 @@
 ﻿#if ANDROID
-namespace MelonLoader.Bootstrap.Java;
+namespace MelonLoader.Java;
 
 public static partial class JNI
 {

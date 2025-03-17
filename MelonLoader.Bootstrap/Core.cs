@@ -47,7 +47,7 @@ public static class Core
         LoaderConfig.Current.Loader.BaseDirectory = DataDir;
         Proxy.Android.AndroidBootstrap.EnsurePerms();
 
-        Proxy.Android.APKAssetManager.Initialize();
+        MelonLoader.Utils.APKAssetManager.Initialize();
         Proxy.Android.AndroidProxy.Log("JNI initialized!");
 
         Proxy.Android.AndroidBootstrap.CopyMelonLoaderData(Proxy.Android.AndroidBootstrap.GetApkModificationDate());
