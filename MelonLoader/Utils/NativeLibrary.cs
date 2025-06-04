@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using MelonLoader.Utils;
 
 namespace MelonLoader
 {
@@ -27,8 +28,16 @@ namespace MelonLoader
             if (string.IsNullOrEmpty(filepath))
                 throw new ArgumentNullException(nameof(filepath));
             IntPtr ptr = AgnosticLoadLibrary(filepath);
+#if !ANDROID
             if (ptr == IntPtr.Zero)
                 throw new Exception($"Unable to Load Native Library {filepath}!");
+#else
+            if (ptr == IntPtr.Zero)
+            {
+                var error = Marshal.PtrToStringAnsi(dlerror());
+                throw new DlErrorException($"Unable to Load Native Library {filepath}!\ndlerror: {error}");
+            }
+#endif
             return ptr;
         }
 
@@ -63,6 +72,27 @@ namespace MelonLoader
                 name += ".so";
             
             return dlopen(name, RTLD_NOW);
+#elif ANDROID
+            string path = name;
+            if (File.Exists(path))
+            {
+                // bypasses android security that blocks people from loading native libs from anywhere
+                string fileName = Path.GetFileName(path);
+                path = Path.Combine("/data/data/", MelonEnvironment.PackageName);
+                path = Path.Combine(path, fileName);
+
+                FileInfo newLib = new(name);
+                FileInfo copiedLib = new(path);
+                if (copiedLib.Exists && newLib.LastWriteTime > copiedLib.LastWriteTime)
+                {
+                    copiedLib.Delete();
+                    File.Copy(name, path);
+                }
+                else if (!copiedLib.Exists)
+                    File.Copy(name, path);
+            }
+
+            return dlopen(path, RTLD_NOW);
 #endif
         }
 
@@ -70,7 +100,7 @@ namespace MelonLoader
         {
 #if WINDOWS
             return GetProcAddress(hModule, lpProcName);
-#elif LINUX
+#elif LINUX || ANDROID
             return dlsym(hModule, lpProcName);
 #endif
         }
@@ -89,9 +119,20 @@ namespace MelonLoader
         [DllImport("libdl.so.2")]
         protected static extern IntPtr dlsym(IntPtr handle, string symbol);
 
+        const int RTLD_NOW = 2; // for dlopen's flags
+#elif ANDROID
+        [DllImport("libdl.so")]
+        protected static extern IntPtr dlopen(string filename, int flags);
+
+        [DllImport("libdl.so")]
+        protected static extern IntPtr dlsym(IntPtr handle, string symbol);
+
+        [DllImport("libdl.so")]
+        protected static extern IntPtr dlerror();
+
         const int RTLD_NOW = 2; // for dlopen's flags 
 #endif
-        
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.LPStr)]
         internal delegate string StringDelegate();
@@ -134,4 +175,13 @@ namespace MelonLoader
             }
         }
     }
+
+#if ANDROID
+    public class DlErrorException : Exception
+    {
+        public DlErrorException() { }
+        public DlErrorException(string message) : base(message) { }
+        public DlErrorException(string message, Exception inner) : base(message, inner) { }
+    }
+#endif
 }
