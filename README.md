@@ -64,11 +64,13 @@ Third-party Libraries used as Source Code and/or bundled in Binary Form:
 - [Pastel](https://github.com/silkfire/Pastel) is licensed under the MIT License. See [LICENSE](https://github.com/silkfire/Pastel/blob/master/LICENSE) for the full License.
 - [Il2CppInterop](https://github.com/BepInEx/Il2CppInterop) is licensed under the LGPLv3 License. See [LICENSE](https://github.com/BepInEx/Il2CppInterop/blob/master/LICENSE) for the full License.
 - [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) is licensed under the MIT License. See [LICENSE](https://github.com/SamboyCoding/Cpp2IL/blob/master/LICENSE) for the full License.
+- [JNISharp](https://github.com/WarrenUlrich/JNISharp) is licensed under the MIT License. See [LICENSE](https://github.com/WarrenUlrich/JNISharp/blob/master/LICENSE) for the full License.
+- [OpenSSL](https://github.com/openssl/openssl) is licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/openssl/openssl/blob/master/LICENSE.txt) for the full License.
+- [.NET Runtime](https://github.com/dotnet/runtime) is licensed under the MIT License. See [LICENSE](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT) for the full License.
 
 External Libraries and Tools that are downloaded and used at Runtime:
 - Unity Runtime Libraries from [MelonLoader.UnityDependencies](https://github.com/LavaGang/MelonLoader.UnityDependencies) are part of Unity Software.  
 Their usage is subject to [Unity Terms of Service](https://unity3d.com/legal/terms-of-service), including [Unity Software Additional Terms](https://unity3d.com/legal/terms-of-service/software).
-- [.NET Runtime](https://github.com/dotnet/runtime) is licensed under the MIT License. See [LICENSE](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT) for the full License.
 
 See [MelonLoader Wiki](https://melonwiki.xyz/#/credits) for the full Credits.
 
