@@ -237,6 +237,12 @@ namespace MelonLoader.Fixes
                 LogDebugMsg("Patching Il2CppInterop Il2CppDetourMethodPatcher.ReportException...");
                 Core.HarmonyInstance.Patch(_reportException,
                     new HarmonyMethod(_reportException_Prefix));
+
+#if OSX
+                Core.HarmonyInstance.Patch(AccessTools.Method(injectorHelpersType, "Setup"),
+                    null, null,
+                    AccessTools.Method(thisType, nameof(InjectorHelpersSetup_Transpiler)).ToNewHarmonyMethod());
+#endif
             }
             catch (Exception e)
             {
@@ -634,6 +640,22 @@ namespace MelonLoader.Fixes
                 }
             }
         }
+
+        // This hook isn't reliable on macOS due to potential inlining by the player's compiler resulting in il2cppinterop
+        // thinking it found the right function, but it actually found one that takes a pointer which it would then incorrectly hook
+        // resulting in a crash. While it can hinder class injection functionality, it isn't needed for the game to boot,
+        // and it didn't prevent UnityExplorer to function
+#if OSX
+        private static IEnumerable<CodeInstruction> InjectorHelpersSetup_Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var injectorHelpersType = typeof(ClassInjector).Assembly.GetType("Il2CppInterop.Runtime.Injection.InjectorHelpers");
+            var codeMatcher = new CodeMatcher(instructions);
+            codeMatcher.MatchStartForward([
+                    new(i => i.LoadsField(AccessTools.Field(injectorHelpersType, "GetTypeInfoFromTypeDefinitionIndexHook")))
+                ]).RemoveInstructions(2);
+            return codeMatcher.Instructions();
+        }
+#endif
     }
 }
 #endif

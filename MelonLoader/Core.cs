@@ -120,8 +120,26 @@ namespace MelonLoader
             Fixes.ServerCertificateValidation.Install();
 #endif
 
-
             Assertions.LemonAssertMapping.Setup();
+            HarmonyLogger.Setup();
+
+#if !WINDOWS && !NET6_0_OR_GREATER
+            // Using Process.Start can run Console..cctor
+            // Since MonoMod's PlatformHelper (used by DetourHelper.Native) runs Process.Start to determine ARM/x86
+            // platform, this causes the unpatched TermInfoReader to kick in before it can be patched and fixed when
+            // installing the XTermFix below. To work around this, we can force the platform directly
+            DetourHelper.Native = new DetourNativeMonoPosixPlatform(new DetourNativeX86Platform());
+#endif
+
+            HarmonyInstance = new HarmonyLib.Harmony(BuildInfo.Name);
+
+#if !WINDOWS && !NET6_0_OR_GREATER
+            Fixes.XTermFix.Install();
+#endif
+
+#if OSX
+            Fixes.ProcessModulesFix.Install();
+#endif
 
             MelonUtils.Setup(AppDomain.CurrentDomain);
             MelonAssemblyResolver.Setup();
@@ -132,8 +150,21 @@ namespace MelonLoader
 
             if (LoaderConfig.Current.Loader.LaunchDebugger && MelonEnvironment.IsDotnetRuntime)
             {
+#if WINDOWS
                 MelonLogger.Msg("[Init] User requested debugger, attempting to launch now...");
-                Debugger.Launch();
+                if (Debugger.Launch())
+                {
+                    MelonLogger.Msg("[Init] Done interacting with the debugger launch window, waiting for the debugger to be attached...");
+                    while (!Debugger.IsAttached)
+                    { }
+                    MelonLogger.Msg("[Init] Detected a debugger, resuming initialization...");
+                }
+#else
+                MelonLogger.Msg("[Init] User requested to wait until a debugger is attached, waiting now...");
+                while (!Debugger.IsAttached)
+                { }
+                MelonLogger.Msg("[Init] Detected a debugger, resuming initialization...");
+#endif
             }
 
             Environment.SetEnvironmentVariable("IL2CPP_INTEROP_DATABASES_LOCATION", MelonEnvironment.Il2CppAssembliesDirectory);
@@ -157,22 +188,6 @@ namespace MelonLoader
 
 #endif
 
-            HarmonyLogger.Setup();
-
-#if !WINDOWS && !NET6_0_OR_GREATER
-            // Using Process.Start can run Console..cctor
-            // Since MonoMod's PlatformHelper (used by DetourHelper.Native) runs Process.Start to determine ARM/x86
-            // platform, this causes the unpatched TermInfoReader to kick in before it can be patched and fixed when
-            // installing the XTermFix below. To work around this, we can force the platform directly
-            DetourHelper.Native = new DetourNativeMonoPosixPlatform(new DetourNativeX86Platform());
-#endif
-
-            HarmonyInstance = new HarmonyLib.Harmony(BuildInfo.Name);
-
-#if !WINDOWS && !NET6_0_OR_GREATER
-            Fixes.XTermFix.Install();
-#endif
-
             Fixes.DetourContextDisposeFix.Install();
 
 #if NET6_0_OR_GREATER
@@ -193,6 +208,9 @@ namespace MelonLoader
             Fixes.AsmResolverFix.Install();
             Fixes.Il2CppInteropFixes.Install();
             Fixes.Il2CppICallInjector.Install();
+#if OSX
+            Fixes.NativeLibraryFix.Install();
+#endif
 #endif
 
             PatchShield.Install();
@@ -204,8 +222,8 @@ namespace MelonLoader
             bHapticsManager.Connect(BuildInfo.Name, UnityInformationHandler.GameName);
 
             MelonFolderHandler.ScanForFolders();
-            MelonFolderHandler.LoadMelons(MelonFolderHandler.eScanType.UserLibs);
-            MelonFolderHandler.LoadMelons(MelonFolderHandler.eScanType.Plugins);
+            MelonFolderHandler.LoadMelons(MelonFolderHandler.ScanType.UserLibs);
+            MelonFolderHandler.LoadMelons(MelonFolderHandler.ScanType.Plugins);
 
             MelonEvents.MelonHarmonyEarlyInit.Invoke();
             MelonEvents.OnPreInitialization.Invoke();
@@ -238,7 +256,7 @@ namespace MelonLoader
                 return false;
 
             MelonEvents.OnPreModsLoaded.Invoke();
-            MelonFolderHandler.LoadMelons(MelonFolderHandler.eScanType.Mods);
+            MelonFolderHandler.LoadMelons(MelonFolderHandler.ScanType.Mods);
 
             MelonEvents.OnPreSupportModule.Invoke();
             if (!SupportModule.Setup())

@@ -26,6 +26,7 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="..\Component.cs" Link="Component.cs" />
+        <Compile Include="..\ComponentSiblingFix.cs" Link="ComponentSiblingFix.cs" />
         <Compile Include="..\SupportModule_To.cs" Link="SupportModule_To.cs" />
         <Compile Include="..\SceneHandler.cs" Link="SceneHandler.cs" />
         <Compile Include="..\UnityMappers.cs" Link="UnityMappers.cs" />

@@ -41,6 +41,11 @@ namespace MelonLoader.Support
             }
 
             UnityMappers.RegisterMappers();
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                System.Runtime.InteropServices.NativeLibrary.SetDllImportResolver(typeof(Il2CppInteropRuntime).Assembly,
+                    MacOsIl2CppInteropLibraryResolver);
+            }
 
             Il2CppInteropRuntime runtime = Il2CppInteropRuntime.Create(new()
             {
@@ -59,7 +64,6 @@ namespace MelonLoader.Support
 
             MonoEnumeratorWrapper.Register();
 
-            ClassInjector.RegisterTypeInIl2Cpp<SM_Component>();
             SM_Component.Create();
 
             Interop = new InteropInterface();
@@ -67,6 +71,16 @@ namespace MelonLoader.Support
             runtime.Start();
 
             return new SupportModule_To();
+        }
+
+        private static IntPtr MacOsIl2CppInteropLibraryResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+        {
+            if (libraryName == "GameAssembly")
+            {
+                string gameAssemblyPath = Path.Combine(MelonEnvironment.GameExecutablePath, "Contents", "Frameworks", $"{libraryName}.dylib");
+                return System.Runtime.InteropServices.NativeLibrary.Load(gameAssemblyPath);
+            }
+            return IntPtr.Zero;
         }
 
         private static void ConsoleCleaner()

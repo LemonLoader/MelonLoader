@@ -1,4 +1,4 @@
-﻿using MelonLoader.Bootstrap.Utils;
+using MelonLoader.Bootstrap.Utils;
 using System.Runtime.InteropServices;
 
 namespace MelonLoader.Bootstrap.RuntimeHandlers.Il2Cpp;

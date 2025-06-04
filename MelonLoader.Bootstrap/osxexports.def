@@ -1,0 +1,12 @@
+_DotNetRuntimeDebugHeader
+_Init
+_NativeHookAttach
+_NativeHookDetach
+_LogMsg
+_LogError
+_LogMelonInfo
+_MonoInstallHooks
+_MonoGetDomainPtr
+_MonoGetRuntimeHandle
+_IsConsoleOpen
+_GetLoaderConfig
