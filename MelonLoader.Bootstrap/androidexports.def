@@ -11,6 +11,7 @@
         MonoGetRuntimeHandle;
         IsConsoleOpen;
         GetLoaderConfig;
+        GetJavaVM;
         JNI_OnLoad;
     local: *;
 };

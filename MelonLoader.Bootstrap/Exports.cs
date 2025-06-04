@@ -216,4 +216,12 @@ internal static class Exports
     {
         Marshal.StructureToPtr(LoaderConfig.Current, *pConfig, false);
     }
+
+#if ANDROID
+    [UnmanagedCallersOnly(EntryPoint = "GetJavaVM")]
+    public static unsafe IntPtr GetJavaVM()
+    {
+        return MelonLoader.Java.JNI.lastVmPtr;
+    }
+#endif
 }

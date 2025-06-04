@@ -18,7 +18,7 @@ internal static class Il2CppHandler
 #if !ANDROID
         "net6";
 #else
-        "net8";
+        "net6";
 #endif
 
     public static void Initialize(nint handle)
@@ -75,6 +75,14 @@ internal static class Il2CppHandler
         {
             Core.Logger.Error($"NativeHost not found at: '{runtimeConfigPath}'");
             return;
+        }
+
+        // TODO: lazy workaround so I don't have to upgrade everything to net8
+        string runtimeConfig = File.ReadAllText(runtimeConfigPath);
+        if (runtimeConfig.Contains("net6"))
+        {
+            runtimeConfig = runtimeConfig.Replace("6.0", "8.0");
+            File.WriteAllText(runtimeConfigPath, runtimeConfig);
         }
 
         MelonDebug.Log("Attempting to load Hostfxr");

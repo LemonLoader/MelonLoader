@@ -1,6 +1,5 @@
 ﻿using System.IO;
 using System.Diagnostics;
-using System;
 
 namespace MelonLoader.Utils
 {
@@ -20,7 +19,13 @@ namespace MelonLoader.Utils
 
         public static string GameExecutablePath { get; } = Process.GetCurrentProcess().MainModule.FileName;
         public static string MelonLoaderDirectory { get; } = Path.Combine(MelonBaseDirectory, "MelonLoader");
+#if !ANDROID
         public static string GameRootDirectory { get; } = Path.GetDirectoryName(GameExecutablePath);
+#else
+        public static string GameRootDirectory { get; } = MelonBaseDirectory;
+
+        public static string PackageName { get; } = Path.GetFileName(MelonBaseDirectory); // MelonBaseDirectory is named after the current package by the bootstrap
+#endif
 
 
         public static string DependenciesDirectory { get; } = Path.Combine(MelonLoaderDirectory, "Dependencies");
@@ -35,7 +40,12 @@ namespace MelonLoader.Utils
         public static string OurRuntimeDirectory { get; } = Path.Combine(MelonLoaderDirectory, OurRuntimeName);
 
         public static string GameExecutableName { get; } = Path.GetFileNameWithoutExtension(GameExecutablePath);
+#if !ANDROID
         public static string UnityGameDataDirectory { get; } = Path.Combine(GameRootDirectory, GameExecutableName + "_Data");
+#else
+
+        public static string UnityGameDataDirectory { get; } = "bin/Data/"; // inside the APK's assets directory; we're interacting with it via the AssetManager API so this makes sense
+#endif
         public static string UnityGameManagedDirectory { get; } = Path.Combine(UnityGameDataDirectory, "Managed");
         public static string Il2CppDataDirectory { get; } = Path.Combine(UnityGameDataDirectory, "il2cpp_data");
         public static string UnityPlayerPath { get; } = Path.Combine(GameRootDirectory, "UnityPlayer.dll");

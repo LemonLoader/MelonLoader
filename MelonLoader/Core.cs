@@ -99,6 +99,11 @@ namespace MelonLoader
 
             MelonLaunchOptions.Load();
 
+#if ANDROID
+            Java.JNI.Initialize(BootstrapInterop.Library.GetJavaVM());
+            APKAssetManager.Initialize();
+#endif
+
 #if NET35
             // Disabled for now because of issues
             //Net20Compatibility.TryInstall();
@@ -174,7 +179,9 @@ namespace MelonLoader
             // if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             //  NativeStackWalk.LogNativeStackTrace();
 
+#if !ANDROID
             Fixes.DotnetAssemblyLoadContextFix.Install();
+#endif
             Fixes.DotnetModHandlerRedirectionFix.Install();
 #endif
 
