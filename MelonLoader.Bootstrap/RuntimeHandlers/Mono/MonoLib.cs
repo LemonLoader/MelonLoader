@@ -29,9 +29,7 @@ internal class MonoLib
     public required AssemblyGetImageFn AssemblyGetImage { get; init; }
     public required ClassFromNameFn ClassFromName { get; init; }
     public required ClassGetMethodFromNameFn ClassGetMethodFromName { get; init; }
-    public required InstallAssemblyPreloadHookFn InstallAssemblyPreloadHook { get; init; }
     public required InstallAssemblySearchHookFn InstallAssemblySearchHook { get; init; }
-    public required InstallAssemblyLoadHookFn InstallAssemblyLoadHook { get; init; }
 
     public DomainSetConfigFn? DomainSetConfig { get; init; }
     public DebugEnabledFn? DebugEnabled { get; init; }
@@ -58,9 +56,7 @@ internal class MonoLib
             || !NativeFunc.GetExport<AssemblyGetImageFn>(hRuntime, "mono_assembly_get_image", out var assemblyGetImage)
             || !NativeFunc.GetExport<ClassFromNameFn>(hRuntime, "mono_class_from_name", out var classFromName)
             || !NativeFunc.GetExport<ClassGetMethodFromNameFn>(hRuntime, "mono_class_get_method_from_name", out var classGetMethodFromName)
-            || !NativeFunc.GetExport<InstallAssemblyPreloadHookFn>(hRuntime, "mono_install_assembly_preload_hook", out var installAssemblyPreloadHook)
-            || !NativeFunc.GetExport<InstallAssemblySearchHookFn>(hRuntime, "mono_install_assembly_search_hook", out var installAssemblySearchHook)
-            || !NativeFunc.GetExport<InstallAssemblyLoadHookFn>(hRuntime, "mono_install_assembly_load_hook", out var installAssemblyLoadHook))
+            || !NativeFunc.GetExport<InstallAssemblySearchHookFn>(hRuntime, "mono_install_assembly_search_hook", out var installAssemblySearchHook))
             return null;
 
         var debugEnabled = NativeFunc.GetExport<DebugEnabledFn>(hRuntime, "mono_debug_enabled");
@@ -87,9 +83,7 @@ internal class MonoLib
             ClassFromName = classFromName,
             ClassGetMethodFromName = classGetMethodFromName,
             ImageOpenFromDataWithName = imageOpenFromDataWithName,
-            InstallAssemblyPreloadHook = installAssemblyPreloadHook,
             InstallAssemblySearchHook = installAssemblySearchHook,
-            InstallAssemblyLoadHook = installAssemblyLoadHook,
             DomainSetConfig = domainSetConfig,
             ConfigParse = configParse
         };
@@ -100,12 +94,6 @@ internal class MonoLib
         ThreadSetMain(ThreadCurrent());
     }
 
-    public void AddManagedInternalCall<TDelegate>(string name, TDelegate func) where TDelegate : Delegate
-    {
-        passedDelegates.Add(func);
-        AddInternalCall(name, Marshal.GetFunctionPointerForDelegate(func));
-    }
-
     public string? GetMethodName(nint method)
     {
         if (method == 0)
@@ -114,24 +102,12 @@ internal class MonoLib
         return Marshal.PtrToStringAnsi(MethodGetName(method));
     }
 
-    public void InstallAssemblyHooks(AssemblyPreloadHookFn? preloadHook, AssemblySearchHookFn? searchHook, AssemblyLoadHookFn? loadHook)
+    public void InstallAssemblyHooks(AssemblySearchHookFn? searchHook)
     {
-        if (preloadHook != null)
-        {
-            passedDelegates.Add(preloadHook);
-            InstallAssemblyPreloadHook(preloadHook, 0);
-        }
-
         if (searchHook != null)
         {
             passedDelegates.Add(searchHook);
             InstallAssemblySearchHook(searchHook, 0);
-        }
-
-        if (loadHook != null)
-        {
-            passedDelegates.Add(loadHook);
-            InstallAssemblyLoadHook(loadHook, 0);
         }
     }
 
@@ -161,11 +137,8 @@ internal class MonoLib
     public delegate string AssemblyGetrootdirFn();
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate nint InstallAssemblyPreloadHookFn(AssemblyPreloadHookFn func, nint userData);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint InstallAssemblySearchHookFn(AssemblySearchHookFn func, nint userData);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate nint InstallAssemblyLoadHookFn(AssemblyLoadHookFn func, nint userData);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint MethodGetNameFn(nint method);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -193,15 +166,10 @@ internal class MonoLib
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     public delegate void ConfigParseFn(string? configPath);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate nint AssemblyPreloadHookFn(ref AssemblyName name, nint assemblyPaths, nint userData);
-
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     public unsafe delegate nint ImageOpenFromDataWithNameFn(byte* data, uint dataLen, bool needCopy, ref MonoImageOpenStatus status, bool refonly, string name);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate nint AssemblySearchHookFn(ref AssemblyName name, nint userData);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void AssemblyLoadHookFn(nint monoAssembly, nint userData);
 
     public enum MonoDebugFormat
     {

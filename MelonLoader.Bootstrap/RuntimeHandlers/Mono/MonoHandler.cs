@@ -1,12 +1,11 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace MelonLoader.Bootstrap.RuntimeHandlers.Mono;
 
 internal static class MonoHandler
 {
-    private static nint assemblyManagerResolve;
-    private static nint assemblyManagerLoadInfo;
+    private static nint assemblyManagerSearchAssembly;
     private static bool debugInitCalled;
     private static bool jitInitDone;
 
@@ -16,10 +15,10 @@ internal static class MonoHandler
     private const char MonoPathSeparator =
 #if WINDOWS
         ';';
-#elif LINUX || ANDROID
+#elif LINUX || OSX || ANDROID
         ':';
 #endif
-    
+
     private const string MonoDebugArgsStart = "--debugger-agent=transport=dt_socket,server=y,address=";
     private const string MonoDebugNoSuspendArg = ",suspend=n";
     private const string MonoDebugNoSuspendArgOldMono = ",suspend=n,defer=y";
@@ -48,7 +47,7 @@ internal static class MonoHandler
             .Split(MonoPathSeparator)
             .Select(x => Path.GetFullPath(Path.Combine(x, fileName)))
             .FirstOrDefault(File.Exists);
-        
+
         if (foundOverridenFile == null)
             return Mono.ImageOpenFromDataWithName(data, dataLen, needCopy, ref status, refonly, name);
         
@@ -57,7 +56,7 @@ internal static class MonoHandler
         uint newDataLen = (uint)newDataArray.Length;
         fixed (byte* newDataPtr = &newDataArray[0])
         {
-            var newReturn = Mono.ImageOpenFromDataWithName(newDataPtr, newDataLen, needCopy, ref status, refonly, name);
+            var newReturn = Mono.ImageOpenFromDataWithName(newDataPtr, newDataLen, needCopy, ref status, refonly, foundOverridenFile);
             return newReturn;
         }
     }
@@ -126,7 +125,7 @@ internal static class MonoHandler
 
             Mono.DomainSetConfig(Domain, Core.GameDir, configFile);
         }
-        
+
         MelonDebug.Log("Parsing default Mono config");
         Mono.ConfigParse(null);
 
@@ -143,7 +142,7 @@ internal static class MonoHandler
             Mono.JitParseOptions(argc, argv);
             return;
         }
-        
+
         string newArgs;
         string? dnSpyEnv = Environment.GetEnvironmentVariable("DNSPY_UNITY_DBG2");
         if (dnSpyEnv == null)
@@ -160,12 +159,12 @@ internal static class MonoHandler
         {
             newArgs = dnSpyEnv;
         }
-        
+
         string[] newArgv = new string[argc + 1];
         Array.Copy(argv, 0, newArgv, 0, argc);
         argc++;
         newArgv[argc - 1] = newArgs;
-        
+
         MelonDebug.Log($"Adding jit option: {string.Join(' ', newArgs)}");
 
         Mono.JitParseOptions(argc, newArgv);
@@ -190,9 +189,6 @@ internal static class MonoHandler
             return;
         }
 
-        MelonDebug.Log("Adding internal calls");
-        Mono.AddManagedInternalCall<CastManagedAssemblyPtrFn>("MelonLoader.Utils.MonoLibrary::CastManagedAssemblyPtr", CastManagedAssemblyPtrImpl);
-
         var image = Mono.AssemblyGetImage(assembly);
         var interopClass = Mono.ClassFromName(image, "MelonLoader.InternalUtils", "BootstrapInterop");
 
@@ -201,8 +197,7 @@ internal static class MonoHandler
 
         var assemblyManagerClass = Mono.ClassFromName(image, "MelonLoader.Resolver", "AssemblyManager");
 
-        assemblyManagerResolve = Mono.ClassGetMethodFromName(assemblyManagerClass, "Resolve", 6);
-        assemblyManagerLoadInfo = Mono.ClassGetMethodFromName(assemblyManagerClass, "LoadInfo", 1);
+        assemblyManagerSearchAssembly = Mono.ClassGetMethodFromName(assemblyManagerClass, "SearchAssembly", 5);
 
         nint ex = 0;
         MelonDebug.Log("Invoking managed core init");
@@ -215,40 +210,19 @@ internal static class MonoHandler
         Mono.RuntimeInvoke(initMethod, 0, (void**)initArgs, ref ex);
     }
 
-    private static nint CastManagedAssemblyPtrImpl(nint ptr)
-    {
-        return ptr;
-    }
-
     internal static void InstallHooks()
     {
         MelonDebug.Log("Installing hooks");
 
-        Mono.InstallAssemblyHooks(OnAssemblyPreload, OnAssemblySearch, OnAssemblyLoad);
-    }
-
-    private static unsafe void OnAssemblyLoad(nint monoAssembly, nint userData)
-    {
-        if (monoAssembly == 0)
-            return;
-
-        var obj = Mono.AssemblyGetObject(Domain, monoAssembly);
-
-        nint ex = 0;
-        Mono.RuntimeInvoke(assemblyManagerLoadInfo, 0, (void**)&obj, ref ex);
+        Mono.InstallAssemblyHooks(OnAssemblySearch);
     }
 
     private static nint OnAssemblySearch(ref MonoLib.AssemblyName name, nint userData)
     {
-        return ResolveAssembly(name, false);
+        return SearchAssembly(name);
     }
 
-    private static nint OnAssemblyPreload(ref MonoLib.AssemblyName name, nint assemblyPaths, nint userData)
-    {
-        return ResolveAssembly(name, true);
-    }
-
-    private static unsafe nint ResolveAssembly(MonoLib.AssemblyName name, bool preload)
+    private static unsafe nint SearchAssembly(MonoLib.AssemblyName name)
     {
         var args = stackalloc void*[]
         {
@@ -256,14 +230,11 @@ internal static class MonoHandler
             &name.Major,
             &name.Minor,
             &name.Build,
-            &name.Revision,
-            &preload
+            &name.Revision
         };
 
         nint ex = 0;
-        var reflectionAsm = (MonoLib.ReflectionAssembly*)Mono.RuntimeInvoke(assemblyManagerResolve, 0, args, ref ex);
+        var reflectionAsm = (MonoLib.ReflectionAssembly*)Mono.RuntimeInvoke(assemblyManagerSearchAssembly, 0, args, ref ex);
         return reflectionAsm == null ? 0 : reflectionAsm->Assembly;
     }
-
-    private delegate nint CastManagedAssemblyPtrFn(nint ptr);
 }

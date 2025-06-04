@@ -5,117 +5,95 @@ using System.Reflection;
 
 #if NET6_0_OR_GREATER
 using System.Runtime.Loader;
-#else
-using System;
-using System.Runtime.InteropServices;
-using MelonLoader.Utils;
 #endif
 
-namespace MelonLoader.Resolver
+namespace MelonLoader.Resolver;
+
+internal static class SearchDirectoryManager
 {
-    internal static class SearchDirectoryManager
+    private static List<SearchDirectoryInfo> SearchDirectoryList = new List<SearchDirectoryInfo>();
+
+    private static void Sort()
+        => SearchDirectoryList =
+            SearchDirectoryList.OrderBy(x => x.Priority).ToList();
+
+    internal static void Add(string path, int priority = 0)
     {
-        private static List<SearchDirectoryInfo> SearchDirectoryList = new List<SearchDirectoryInfo>();
+        if (string.IsNullOrEmpty(path))
+            return;
 
-        private static void Sort()
-            => SearchDirectoryList =
-                SearchDirectoryList.OrderBy(x => x.Priority).ToList();
+        path = Path.GetFullPath(path);
+        if (path.ContainsExtension())
+            return;
 
-        internal static void Add(string path, int priority = 0)
+        SearchDirectoryInfo searchDirectory = SearchDirectoryList.FirstOrDefault(x => x.Path.Equals(path));
+        if (searchDirectory != null)
+            return;
+
+        searchDirectory = new SearchDirectoryInfo();
+        searchDirectory.Path = path;
+        searchDirectory.Priority = priority;
+        SearchDirectoryList.Add(searchDirectory);
+
+        Sort();
+    }
+
+    internal static void Remove(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        path = Path.GetFullPath(path);
+        if (path.ContainsExtension())
+            return;
+
+        SearchDirectoryInfo searchDirectory = SearchDirectoryList.FirstOrDefault(x => x.Path.Equals(path));
+        if (searchDirectory == null)
+            return;
+
+        SearchDirectoryList.Remove(searchDirectory);
+
+        Sort();
+    }
+
+    internal static Assembly Scan(string requestedName)
+    {
+        MelonDebug.Msg($"[MelonAssemblyResolver] Attempting to find {requestedName}");
+        LemonEnumerator<SearchDirectoryInfo> enumerator = new LemonEnumerator<SearchDirectoryInfo>(SearchDirectoryList);
+        while (enumerator.MoveNext())
         {
-            if (string.IsNullOrEmpty(path))
-                return;
+            string folderPath = enumerator.Current?.Path;
+            if (folderPath.ContainsExtension() || !Directory.Exists(folderPath))
+                continue;
 
-            path = Path.GetFullPath(path);
-            if (path.ContainsExtension())
-                return;
+            MelonDebug.Msg($"Searching directory {folderPath}");
+            string filepath = 
+                Directory.GetFiles(folderPath)
+                    .FirstOrDefault(x => !string.IsNullOrEmpty(x) &&
+                                         ((Path.GetExtension(x).ToLowerInvariant().Equals(".dll")
+                                           && Path.GetFileName(x).Equals($"{requestedName}.dll"))
+                                          || (Path.GetExtension(x).ToLowerInvariant().Equals(".exe")
+                                              && Path.GetFileName(x).Equals($"{requestedName}.exe"))));
 
-            SearchDirectoryInfo searchDirectory = SearchDirectoryList.FirstOrDefault(x => x.Path.Equals(path));
-            if (searchDirectory != null)
-                return;
+            if (string.IsNullOrEmpty(filepath))
+                continue;
 
-            searchDirectory = new SearchDirectoryInfo();
-            searchDirectory.Path = path;
-            searchDirectory.Priority = priority;
-            SearchDirectoryList.Add(searchDirectory);
-
-            Sort();
-        }
-
-        internal static void Remove(string path)
-        {
-            if (string.IsNullOrEmpty(path))
-                return;
-
-            path = Path.GetFullPath(path);
-            if (path.ContainsExtension())
-                return;
-
-            SearchDirectoryInfo searchDirectory = SearchDirectoryList.FirstOrDefault(x => x.Path.Equals(path));
-            if (searchDirectory == null)
-                return;
-
-            SearchDirectoryList.Remove(searchDirectory);
-
-            Sort();
-        }
-
-        internal static Assembly Scan(string requested_name)
-        {
-            LemonEnumerator<SearchDirectoryInfo> enumerator = new LemonEnumerator<SearchDirectoryInfo>(SearchDirectoryList);
-            while (enumerator.MoveNext())
-            {
-                string folderpath = enumerator.Current.Path;
-                if (folderpath.ContainsExtension()
-                    || !Directory.Exists(folderpath))
-                    continue;
-
-                string filepath = Directory.GetFiles(folderpath).Where(x =>
-                    (!string.IsNullOrEmpty(x)
-                        && ((Path.GetExtension(x).ToLowerInvariant().Equals(".dll")
-                            && Path.GetFileName(x).Equals($"{requested_name}.dll"))
-                        || (Path.GetExtension(x).ToLowerInvariant().Equals(".exe")
-                            && Path.GetFileName(x).Equals($"{requested_name}.exe"))))
-                ).FirstOrDefault();
-
-                if (string.IsNullOrEmpty(filepath))
-                    continue;
-
-                MelonDebug.Msg($"[MelonAssemblyResolver] Loading from {filepath}...");
+            MelonDebug.Msg($"[MelonAssemblyResolver] Loading from {filepath}...");
 
 #if NET6_0_OR_GREATER
-
-                return AssemblyLoadContext.Default.LoadFromAssemblyPath(filepath);
-
+            return AssemblyLoadContext.Default.LoadFromAssemblyPath(filepath);
 #else
-                IntPtr filePathPtr = Marshal.StringToHGlobalAnsi(filepath);
-                if (filePathPtr == IntPtr.Zero)
-                    continue;
-
-                IntPtr rootPtr = InternalUtils.BootstrapInterop.Library.MonoGetDomainPtr();
-                if (rootPtr == IntPtr.Zero)
-                    continue;
-
-                IntPtr assemblyPtr = MonoLibrary.Instance.mono_assembly_open_full(filePathPtr, IntPtr.Zero, false);
-                if (assemblyPtr == IntPtr.Zero)
-                    continue;
-
-                IntPtr assemblyReflectionPtr = MonoLibrary.Instance.mono_assembly_get_object(rootPtr, assemblyPtr);
-                if (assemblyReflectionPtr == IntPtr.Zero)
-                    continue;
-
-                return MonoLibrary.CastManagedAssemblyPtr(assemblyReflectionPtr);
+                return Assembly.LoadFrom(filepath);
 #endif
-            }
-
-            MelonDebug.Msg($"[MelonAssemblyResolver] Failed to find {requested_name} in any of the known search directories");
-            return null;
         }
 
-        private class SearchDirectoryInfo
-        {
-            internal string Path = null;
-            internal int Priority = 0;
-        }
+        MelonDebug.Msg($"[MelonAssemblyResolver] Failed to find {requestedName} in any of the known search directories");
+        return null;
+    }
+
+    private class SearchDirectoryInfo
+    {
+        internal string Path = null;
+        internal int Priority = 0;
     }
 }

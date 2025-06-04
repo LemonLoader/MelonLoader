@@ -27,10 +27,9 @@ internal static class ConsoleHandler
     public static void OpenConsole(bool onTop, string? title)
     {
 #if WINDOWS
-        // Do not create a new window if a window already exists or the output is being redirected
+        // Do not create a new window if a window already exists
         var consoleWindow = WindowsNative.GetConsoleWindow();
-        var stdOut = WindowsNative.GetStdHandle(WindowsNative.StdOutputHandle);
-        if (consoleWindow == 0 && stdOut == 0)
+        if (consoleWindow == 0)
         {
             WindowsNative.AllocConsole();
             consoleWindow = WindowsNative.GetConsoleWindow();

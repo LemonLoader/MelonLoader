@@ -12,6 +12,10 @@ internal static class XTermFix
 
     internal static void Install()
     {
+        if (typeof(Console).Assembly.GetType("System.ConsoleDriver") == null)
+            // Mono version is too old, this fix doesn't apply
+            return;
+
         if (AccessTools.Method("System.TermInfoReader:DetermineVersion") != null)
             // Fix has been applied officially
             return;

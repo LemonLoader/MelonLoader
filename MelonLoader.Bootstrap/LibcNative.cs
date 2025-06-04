@@ -1,4 +1,4 @@
-#if LINUX
+#if LINUX || OSX
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -10,6 +10,9 @@ internal partial class LibcNative
     internal const int Stderr = 2;
 
     internal const int SeekEnd = 2;
+
+    internal const int RtldLazy = 0x1;
+    internal const int RtldNoLoad = 0x10;
     
     [LibraryImport("libc", EntryPoint = "__libc_start_main")]
     public static unsafe partial int LibCStartMain(
@@ -20,6 +23,10 @@ internal partial class LibcNative
         nint fini,
         nint rtLdFini,
         nint stackEnd);
+
+    [LibraryImport("libc", EntryPoint = "dlopen", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial nint Dlopen(string handle, int flags);
 
     [LibraryImport("libc", EntryPoint = "dlsym", StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
@@ -33,7 +40,11 @@ internal partial class LibcNative
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int Dup2(int oldFd, int newFd);
 
+#if OSX
+    [LibraryImport("libc", EntryPoint = "fopen", StringMarshalling = StringMarshalling.Utf8)]
+#else
     [LibraryImport("libc", EntryPoint = "fopen64", StringMarshalling = StringMarshalling.Utf8)]
+#endif
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial nint Fopen64(string pathName, string modes);
 

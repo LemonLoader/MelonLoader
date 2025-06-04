@@ -3,15 +3,11 @@ using System.Runtime.InteropServices;
 
 namespace MelonLoader.Bootstrap.Utils;
 
-public static unsafe partial class Dobby
+public static partial class Dobby
 {
-    [LibraryImport("*", EntryPoint = "DobbyPrepare")]
+    [LibraryImport("*", EntryPoint = "DobbyHook")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
-    private static partial int Prepare(nint target, nint detour, nint* original);
-
-    [LibraryImport("*", EntryPoint = "DobbyCommit")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
-    private static partial int Commit(nint target);
+    private static partial int Hook(nint target, nint detour, ref nint original);
 
     [LibraryImport("*", EntryPoint = "DobbyDestroy")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
@@ -20,13 +16,9 @@ public static unsafe partial class Dobby
     public static nint HookAttach(nint target, nint detour)
     {
         nint original = 0;
-        if (Prepare(target, detour, &original) != 0)
+        if (Hook(target, detour, ref original) != 0)
         {
             throw new AccessViolationException($"Could not prepare patch to target {target:X}");
-        }
-        if (Commit(target) != 0)
-        {
-            throw new AccessViolationException($"Could not commit patch to target {target:X}");
         }
         return original;
     }

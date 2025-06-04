@@ -57,12 +57,35 @@ namespace MelonLoader.Il2CppAssemblyGenerator.Packages
         internal override void Save()
             => Save(ref Config.Values.DumperVersion);
 
+#if OSX
+        internal override bool OnProcess()
+        {
+            bool processed = base.OnProcess();
+            if (!processed)
+                return false;
+
+            var process = Process.Start("chmod", $"+x \"{FilePath}\"");
+            process?.WaitForExit();
+            if (process?.ExitCode != 0)
+            {
+                Core.Logger.Error($"Failed to set the needed permissions on Cpp2IL, please run the following command " +
+                                  $"and try again: chmod +x {FilePath}");
+                return false;
+            }
+            return true;
+        }
+#endif
+
         internal override bool Execute()
             => Execute([
                 MelonDebug.IsEnabled() ? "--verbose" : string.Empty,
 
                 "--game-path",
+#if OSX
+                "\"" + MelonUtils.GetPathAncestor(Core.GameAssemblyPath, 3) + "\"",
+#else
                 "\"" + Path.GetDirectoryName(Core.GameAssemblyPath) + "\"",
+#endif
 
                 "--exe-name",
                 "\"" + Process.GetCurrentProcess().ProcessName + "\"",

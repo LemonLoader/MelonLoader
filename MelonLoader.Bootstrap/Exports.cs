@@ -1,4 +1,5 @@
-﻿using MelonLoader.Bootstrap.Logging;
+﻿using System.Diagnostics;
+using MelonLoader.Bootstrap.Logging;
 using MelonLoader.Bootstrap.RuntimeHandlers.Mono;
 using MelonLoader.Bootstrap.Utils;
 using System.Diagnostics.CodeAnalysis;
@@ -25,14 +26,117 @@ internal static class Exports
         return true;
     }
 #endif
+
+#if LINUX || OSX
+    private static readonly string CurrentAssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
+    private static bool _hookPlayerMainEntered;
+    private static readonly string? ProcessPath = Process.GetCurrentProcess().MainModule?.FileName;
+    private static readonly string? ProcessDirectory = Path.GetDirectoryName(ProcessPath);
+
+    private const string LibExtension =
+#if OSX
+        "dylib";
+#else
+        "so";
+#endif
+    private const string LdPreloadEnvName =
+#if OSX
+        "DYLD_INSERT_LIBRARIES";
+#else
+        "LD_PRELOAD";
+#endif
+    private const string LdPathEnvName =
+#if OSX
+        "DYLD_LIBRARY_PATH";
+#else
+        "LD_LIBRARY_PATH";
+#endif
+    
+    // It's not guaranteed that the first call is the one we want: it's possible someone was wrapping
+    // the execution from another. We need to at least have good confidence that we're dealing with a
+    // Unity game. The following heuristics checks the presence of a gameName_Data or Data folder which
+    // is at least required for the game to boot. It's not perfect, but it makes it much more likely to not
+    // mess up.
+    private static bool IsLikelyUnityPlayer()
+    {
+        if (ProcessPath is null || ProcessDirectory is null)
+            return false;
+
+#if OSX
+        string? parentProcessDirectory = Path.GetDirectoryName(ProcessDirectory);
+        if (parentProcessDirectory is null)
+            return false;
+        if (!Directory.Exists(Path.Combine(parentProcessDirectory, "Resources", "Data")))
+            return false;
+#else
+        if (!Directory.Exists(Path.Combine(ProcessDirectory, "Data")))
+        {
+            string fileName = Path.GetFileNameWithoutExtension(ProcessPath);
+            string dataDirectory = Path.Combine(ProcessDirectory, $"{fileName}_Data");
+            if (!Directory.Exists(dataDirectory))
+                return false;
+        }
+#endif
+        return true;
+    }
+
+    // We have confirmed Unity is about to get its main invoked, but we need to protect us against
+    // double entry from other processes the game might launch. The most reliable way is to simply cut
+    // original link meaning remove ourselves from LD_PRELOAD / LD_LIBRARY_PATH. It's much safer anyway
+    // since hooking on libc's "pre main" is inherently dangerous so the less time we have this, the better
+    private static void RemoveLibraryPreloadEnv()
+    {
+        if (ProcessPath is null || ProcessDirectory is null)
+            return;
+
+        string[] ldPreloads = Environment.GetEnvironmentVariable(LdPreloadEnvName)!.Split(":");
+        string newLdPreload = string.Join(':', ldPreloads.Where(x => x != $"{CurrentAssemblyName}.{LibExtension}"));
+        string[]? ldLibraryPaths = Environment.GetEnvironmentVariable(LdPathEnvName)?.Split(":");
+
+        // It's possible to hook without a library path set so we only remove ourselves if the variable had a value
+        if (ldLibraryPaths is not null && ldLibraryPaths.Length > 0)
+        {
+            string expectedLibFullPath =
+#if OSX
+            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(ProcessDirectory)))!;
+#else
+                ProcessDirectory;
+#endif
+
+            string newLibraryPath = string.Join(':', ldLibraryPaths
+                .Where(x => expectedLibFullPath != Path.TrimEndingDirectorySeparator(Path.GetFullPath(x))));
+            LibcNative.Setenv(LdPathEnvName, newLibraryPath, true);
+            Environment.SetEnvironmentVariable(LdPathEnvName, newLibraryPath);
+        }
+        LibcNative.Setenv(LdPreloadEnvName, newLdPreload, true);
+        Environment.SetEnvironmentVariable(LdPreloadEnvName, newLdPreload);
+    }
+    
+#if OSX
+    [UnmanagedCallersOnly(EntryPoint = "Init", CallConvs = [typeof(CallConvCdecl)])]
+    [RequiresDynamicCode("Calls InitConfig")]
+    public static void Init()
+    {
+        // Double entry protection against the same process
+        if (_hookPlayerMainEntered)
+            return;
+        if (!IsLikelyUnityPlayer())
+            return;
+        _hookPlayerMainEntered = true;
+
+        RemoveLibraryPreloadEnv();
+
+        string libraryPath = $"{CurrentAssemblyName}.dylib";
+        nint handle = NativeLibrary.Load(libraryPath);
+        Core.Init(handle);
+    }
+#endif
     
 #if LINUX
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private unsafe delegate int MainFn(int argc, char** argv, char** envp);
 
     private static MainFn? _originalMain;
-    private static bool _hookPlayerMainEntered;
-    private static readonly string CurrentAssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     
     // The Linux entrypoint involves exposing our version of __libc_start_main as it's the only
     // symbol we have a guarantee will be called no matter the Unity version. Helpfully for us,
@@ -56,39 +160,10 @@ internal static class Exports
         if (_hookPlayerMainEntered)
             return LibcNative.LibCStartMain(main, argc, argv, init, fini, rtLdFini, stackEnd);
 
-        // It's not guaranteed that the first call is the one we want: it's possible someone was wrapping
-        // the execution from another. We need to at least have good confidence that we're dealing with a
-        // Unity game. The following heuristics checks the presence of a gameName_Data or Data folder which
-        // is at least required for the game to boot. It's not perfect, but it makes it much more likely to not
-        // mess up.
-        string? processPath = Environment.ProcessPath;
-        if (processPath == null)
+        if (!IsLikelyUnityPlayer())
             return LibcNative.LibCStartMain(main, argc, argv, init, fini, rtLdFini, stackEnd);
-        string? directory = Path.GetDirectoryName(processPath);
-        if (string.IsNullOrEmpty(directory))
-            return LibcNative.LibCStartMain(main, argc, argv, init, fini, rtLdFini, stackEnd);
-        if (!Directory.Exists(Path.Combine(directory, "Data")))
-        {
-            string fileName = Path.GetFileNameWithoutExtension(processPath);
-            string dataDirectory = Path.Combine(directory, $"{fileName}_Data");
-            if (!Directory.Exists(dataDirectory))
-                return LibcNative.LibCStartMain(main, argc, argv, init, fini, rtLdFini, stackEnd);
-        }
 
-        // We have confirmed Unity is about to get its main invoked, but we need to protect us against
-        // double entry from other processes the game might launch. The most reliable way is to simply cut
-        // original link meaning remove ourselves from LD_PRELOAD / LD_LIBRARY_PATH. It's much safer anyway
-        // since hooking on libc's "pre main" is inherently dangerous so the less time we have this, the better
-        string[] ldPreloads = Environment.GetEnvironmentVariable("LD_PRELOAD")!.Split(":");
-        string newLdPreload = string.Join(':', ldPreloads.Where(x => x != $"{CurrentAssemblyName}.so"));
-        string[] ldLibraryPaths = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")!.Split(":");
-        string newLibraryPath = string.Join(':', ldLibraryPaths
-            .Where(x => directory != Path.TrimEndingDirectorySeparator(Path.GetFullPath(x))));
-
-        LibcNative.Setenv("LD_PRELOAD", newLdPreload, true);
-        LibcNative.Setenv("LD_LIBRARY_PATH", newLibraryPath, true);
-        Environment.SetEnvironmentVariable("LD_PRELOAD", newLdPreload);
-        Environment.SetEnvironmentVariable("LD_LIBRARY_PATH", newLibraryPath);
+        RemoveLibraryPreloadEnv();
 
         // Finally, we can redirect to our main
         _originalMain ??= Marshal.GetDelegateForFunctionPointer<MainFn>((nint)main);
@@ -113,7 +188,8 @@ internal static class Exports
         Core.Init(handle);
         return _originalMain(argc, argv, envp);
     }
-#endif    
+#endif
+#endif
 
     [UnmanagedCallersOnly(EntryPoint = "NativeHookAttach")]
     public static unsafe void NativeHookAttach(nint* target, nint detour)

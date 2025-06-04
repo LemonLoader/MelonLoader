@@ -41,6 +41,8 @@ public static class AndroidBootstrap
         return Path.Combine(objectMethod.GetString(), "MelonLoader", PackageName);
     }
     
+    // TODO: crashes on older android versions because the API is not available
+    //       should probably check the API level before calling this
     public static bool EnsurePerms()
     {
         const int TRIES = 3;  // Number of attempts

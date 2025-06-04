@@ -1,4 +1,4 @@
-#if LINUX
+#if LINUX || OSX
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -32,7 +32,11 @@ internal static class LinuxPlayerLogsMirroring
     {
         PltHook.InstallHooks(
         [
+#if OSX
+            ("fopen", Marshal.GetFunctionPointerForDelegate(HookFopen64Delegate)),
+#else
             ("fopen64", Marshal.GetFunctionPointerForDelegate(HookFopen64Delegate)),
+#endif
             ("vfprintf", Marshal.GetFunctionPointerForDelegate(HookVfprintfDelegate)),
             ("__vfprintf_chk", Marshal.GetFunctionPointerForDelegate(HookVfprintfChkDelegate)),
             ("dup2", Marshal.GetFunctionPointerForDelegate(HookDup2Delegate))

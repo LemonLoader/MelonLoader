@@ -19,23 +19,26 @@
 
     <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true' And '$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'false'">
         <ExportsFile>linuxexports.def</ExportsFile>
+        <LinkStandardCPlusPlusLibrary>true</LinkStandardCPlusPlusLibrary>
     </PropertyGroup>
-
-	<PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'">
+    <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`osx-`))' == 'true'">
+        <ExportsFile>osxexports.def</ExportsFile>
+        <OSXEntryPath>Deps/$(RuntimeIdentifier)/osxentry.o</OSXEntryPath>
+        <LinkStandardCPlusPlusLibrary>true</LinkStandardCPlusPlusLibrary>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'">
 		<ExportsFile>androidexports.def</ExportsFile>
+        <!-- TODO: Test this on Android -->
+        <LinkStandardCPlusPlusLibrary>true</LinkStandardCPlusPlusLibrary>
 	</PropertyGroup>
+
+    <Target Condition="'$(RuntimeIdentifier.StartsWith(`osx-`))' == 'true'" Name="BuildOSXEntry" BeforeTargets="Build">
+        <Exec Command="g++ -c -O2 -fPIC OSXEntry/osxentry.cpp -o $(OSXEntryPath)" />
+    </Target>
 
     <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'">
         <LinkerArg Include="/DEF:Exports.def" />
     </ItemGroup>
-
-    <!-- This is needed by libnethost.a, not doing this will result in a runtime crash on boot -->
-    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-`))' == 'true' And '$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'false'">
-        <LinkerArg Include="-Wl,-lstdc++" Visible="false" />
-    </ItemGroup>
-	<ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'true'">
-		<LinkerArg Include="-lstdc++" Visible="false" />
-	</ItemGroup>
 
     <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
         <DebugSymbols>false</DebugSymbols>
@@ -80,6 +83,10 @@
         <Compile Include="$(SolutionDir)/MelonLoader/Utils/APKAssetManager.cs" Link="Proxy/Android/%(Filename)%(Extension)" />
     </ItemGroup>
 
+    <ItemGroup Condition="'$(RuntimeIdentifier.StartsWith(`osx-`))' == 'true'">
+        <NativeLibrary Include="$(OSXEntryPath)" />
+    </ItemGroup>
+    
     <ItemGroup>
         <NativeLibrary Include="$(AppHostPath)" />
         <NativeLibrary Include="Deps/$(RuntimeIdentifier)/$(LibPrefix)dobby$(LibExt)" />
@@ -95,8 +102,13 @@
          To workaround this, we can remove the string in the file before linking, but after compile -->
     <Target Name="Replace" BeforeTargets="LinkNative" DependsOnTargets="IlcCompile">
         <WriteLinesToFile File="$(ExportsFile)"
-            Lines="$([System.IO.File]::ReadAllText($(ExportsFile)).Replace('V1.0',''))"
-            Overwrite="true" />
+                          Lines="$([System.IO.File]::ReadAllText($(ExportsFile)).Replace('V1.0',''))"
+                          Overwrite="true"/>
     </Target>
 
+    <Target Condition="'$(RuntimeIdentifier.StartsWith(`linux-bionic-`))' == 'false'" Name="PublishAsBuildAfterTarget" AfterTargets="Build" DependsOnTargets="Publish" />
+
+    <Target Condition="'$(RuntimeIdentifier.StartsWith(`win-`))' == 'true'" Name="RenameBinary" AfterTargets="Build">
+        <Move SourceFiles="$(PublishDir)/$(TargetName).dll" DestinationFiles="$(PublishDir)/version.dll" />
+    </Target>
 </Project>
