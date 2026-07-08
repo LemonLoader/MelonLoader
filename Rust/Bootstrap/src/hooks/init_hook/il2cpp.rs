@@ -1,4 +1,4 @@
-use std::{ffi::c_char, sync::RwLock, ptr::null_mut};
+use std::{ffi::c_char, sync::RwLock, ptr::null_mut, fs, env, path::Path};
 
 use lazy_static::lazy_static;
 use unity_rs::il2cpp::types::Il2CppDomain;
@@ -22,6 +22,22 @@ pub fn detour(name: *const c_char) -> *mut Il2CppDomain {
 fn detour_inner(name: *const c_char) -> Result<*mut Il2CppDomain, DynErr> {
     console::set_handles()?;
 
+    let ssl_cert_path = "/apex/com.android.conscrypt/cacerts";
+    let backup_cert_path = "/system/etc/security/cacerts";
+
+    if Path::new(ssl_cert_path).exists() && is_readable(ssl_cert_path) {
+        env::set_var("SSL_CERT_DIR", ssl_cert_path);
+    } else if Path::new(backup_cert_path).exists() && is_readable(backup_cert_path) {
+        env::set_var("SSL_CERT_DIR", backup_cert_path);
+    } else {
+        debug!("No readable SSL cert file found; HTTPS requests may fail.");
+    }
+
+    debug!(
+        "Using {} for SSL certificates",
+        env::var("SSL_CERT_DIR").unwrap_or_default()
+    );
+
     let trampoline = INIT_HOOK.try_read()?;
     let domain = trampoline(name);
 
@@ -33,4 +49,8 @@ fn detour_inner(name: *const c_char) -> Result<*mut Il2CppDomain, DynErr> {
     invoke_hook::hook()?;
 
     Ok(domain)
+}
+
+fn is_readable(path: &str) -> bool {
+    fs::read_dir(path).is_ok()
 }
